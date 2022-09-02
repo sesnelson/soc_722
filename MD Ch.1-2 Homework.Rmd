@@ -284,8 +284,8 @@ us_medalists <- gold_medalists %>%
 
 #us_medalists
 
-#ggplot(us_medalists, aes(year, fill = sex)) + 
-#  geom_bar()
+ggplot(us_medalists, aes(year, fill = sex)) + 
+  geom_bar()
 
 ggplot(us_medalists, aes(year, fill = sex)) +
   labs(title = "Distribution of US Male and Female Olympic Gold Medalists, 1896-2016", x = "Year", y = "Number of Gold Medals Won by Sex") + 
