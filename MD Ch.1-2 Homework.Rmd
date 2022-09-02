@@ -290,7 +290,7 @@ us_medalists <- gold_medalists %>%
 ggplot(us_medalists, aes(year, fill = sex)) +
   labs(title = "Distribution of US Male and Female Olympic Gold Medalists, 1896-2016", x = "Year", y = "Number of Gold Medals Won by Sex") + 
   scale_fill_manual(values = c("lightpink", "steelblue")) +
-  geom_bar(position = position_dodge(preserve = "single")) 
+  geom_bar(position = position_dodge(preserve = "single"))  
 
 
 ```
