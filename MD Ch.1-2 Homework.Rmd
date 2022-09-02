@@ -1,0 +1,302 @@
+---
+title: "Modern Dive Chapter 1-2 Homework"
+author: "Samuel Snelson"
+date: "`r Sys.Date()`"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+# Chapter 1
+
+## Question 1
+
+```{r}
+#install.packages("causact")
+#install.packages("dplyr") 
+#install.packages("igraph")
+```
+
+## Question 2
+
+```{r}
+library(causact)
+library(dplyr)
+library(igraph)
+```
+
+## Question 2
+
+```{r}
+#df <- as_data_frame(x = c(1, 2, 3))
+```
+
+**Ch.1 Q2 Answer: Got an error saying that vector x is not a graph object (because igraph, called on more recently than dplyr, masked the as_data_frame() function and expects a graph object)**
+
+```{r}
+df <- dplyr::as_data_frame(x = c(1, 2, 3))
+```
+
+```{r}
+glimpse(df)
+```
+
+**Ch.1 Q2 Answer: Using the code `dplyr::as_data_frame()` worked this time because `igraph::as_data_frame()` assumed the vector x was a graph object when we intended it be treated as a data frame with dplyr.**
+
+
+```{r}
+x <- c(5, 6, 2, 7, 9, 1)
+dplyr::n_distinct(x)
+```
+
+**Ch.1 Q2 Answer: Again, R used the `as_data_frame()` function from igraph because it was most recently called.**
+
+# Question 3
+
+```{r}
+?n_distinct
+
+```
+
+**Ch.1 Q3 Answer: This function `n_distinct()` provides a count of the unique values in a set of vectors.**
+
+## Question 4
+
+```{r}
+# Looking at baseballData dataset in causeact package 
+glimpse(baseballData)
+```
+
+**Ch.1 Q4 Answer: This data set has 12,145 rows (representing observations) and 5 columns (representing variables). The variable `Home` corresponds to the home team in a particular game, and `HomeScore` corresponds to that home teams score in that game.** 
+
+
+## Question 5
+
+```{r}
+# Calling first row of baseballData (representing a game)
+baseballData[1, ]
+```
+ **Ch.1 Q5 Answer: Each row represents a game (date played, teams, each teams' score)**
+ 
+```{r}
+baseballData[, 2:3] |> head()
+#baseballData[, 2:3] %>% head() 
+```
+ 
+**Ch.1 Q5 Answer: These two columns represent 6 sets of games played between two teams (simply, their match ups)**
+
+## Question 6
+
+```{r}
+
+name <-
+  c(
+    "Wayne Gretzky",
+    "Gordie Howe",
+    "Jaromir Jagr",
+    "Brett Hull",
+    "Marcel Dionne",
+    "Phil Esposito" ,
+    "Mike Gartner",
+    "Alex Ovechkin",
+    "Mark Messier" ,
+    "Steve Yzerman"
+  )
+
+goals <- c(894, 801, 766, 741, 731, 717, 708, 700, 694, 692)
+
+year_started <- c(1979, 1946, 1990, 1986, 1971, 1963, 1979, 2005, 1979, 1983)
+
+
+df <- tibble(
+  players = name,
+  num_goals = goals,
+  year = year_started
+)
+
+glimpse(df)
+
+```
+**Ch.1 Q6 Answer: Data frame came together properly** 
+
+# Chapter 2
+
+```{r}
+library(tidyverse)
+theme_set(theme_light(base_family = "Avenir"))
+```
+
+```{r}
+olympics  <- read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2021/2021-07-27/olympics.csv')
+
+#spec(olympics)
+
+glimpse(olympics)
+
+```
+
+```{r}
+
+#table(olympics[, "medal"])
+
+table(olympics$medal)
+
+```
+
+## Question 1
+
+```{r}
+
+gold_medalists <- olympics %>%
+  filter(medal == "Gold")
+
+glimpse(gold_medalists)
+
+```
+**Ch.2 Q1 Answer: There are 13,372 rows in this df of gold medalists (in other words 13,372 gold medalists which the other variables in the df describe)** 
+
+## Question 2
+
+```{r}
+
+ggplot(gold_medalists, aes(year, age)) + 
+  labs(title = "Distribution of the Age of Olympic Gold Medalists Over Time, 1896-2016", x = "Year", y = "Age") +
+  geom_point()
+
+# Some solutions to address overplotting of same age 
+
+ggplot(gold_medalists, aes(year, age)) + 
+  labs(title = "Distribution of the Age of Olympic Gold Medalists Over Time, 1896-2016", x = "Year", y = "Age") +
+  geom_point(alpha = 0.2) # adjusting opacity of concentrated values
+
+ggplot(gold_medalists, aes(year, age)) +
+  labs(title = "Distribution of the Age of Olympic Gold Medalists Over Time, 1896-2016", x = "Year", y = "Age") +
+  geom_jitter(width = 20, height = 20, alpha = 0.2) # jittering and changing opacity (but looks ugly) 
+
+```
+**Ch.2 Q2 Answer: The age distribution of Olympic gold medal winners does not appear to have significantly changed over time. When we look at some plots to address the over fitting, we find that perhaps the variability in age has decreased slightly over time. However, this may be due to a increase in the number of athletes who have won medals (a simple enough thing to test, but left as an exercise for the reader ;))**
+
+
+## Question 3
+
+```{r}
+
+us_medals <- gold_medalists %>% 
+  filter(noc == "USA") %>% 
+  group_by(year) %>% 
+  summarise(num_medals = n())
+
+us_medals
+```
+
+```{r}
+# Figuring out year where US got the most medals 
+us_medals$year[us_medals$num_medals == max(us_medals$num_medals)]
+#1984
+```
+**Ch.2 Q3 Answer: The US won the most golf medals in 1984.**
+
+```{r}
+# Line plot of medals over time
+ggplot(us_medals, aes(year, num_medals)) + 
+  labs(title = "Number of US Olympic Medal Winners, 1896-2016", x = "Year", y = "Number of Medals Won") +
+  geom_line()
+
+```
+
+**Ch.2 Q3 Answer: Maybe it is wiggly because we suck at winter or summer sports (though I'd guess winter sports because Kobe was playing in the summer)**
+
+
+Practice adding another variable (average age of US medal winners) 
+
+```{r}
+#avg_age_us_gold <- gold_medalists %>%
+#  filter(noc == "USA") %>%
+#  group_by(year) %>%
+#  summarise(age = mean(age))
+
+#library(statar)
+
+#x <- join(us_medals, avg_age_us_gold, on = "year", kind = "full")
+
+```
+
+
+## Question 4
+
+```{r}
+
+two_events <- gold_medalists %>%
+  filter(
+    event == "Gymnastics Men's Individual All-Around"  |
+      event == "Gymnastics Women's Individual All-Around" |
+      event == "Athletics Women's 100 metres"   |
+      event == "Athletics Men's 100 metres"
+  )
+
+
+# Filtering for only gymnastic events 
+
+gym_events <- two_events %>%
+  filter(
+    event == "Gymnastics Men's Individual All-Around" | 
+      event == "Gymnastics Women's Individual All-Around"
+  )
+
+gym_events
+
+ggplot(gym_events, aes(age)) + 
+  labs(title = "Age of Gymnastic Individual All-Around Atheles, 1896-2016", x = "Age", y = "Number of Athletes") +
+  geom_histogram(binwidth = 2.5)
+
+```
+
+**Ch.2 Q4 Answer: The ages of Olympic gymnasts looks pretty normally distributed with an average age of between 20 and 30 and athletes as young as less than 15 and almost 35.** 
+
+```{r}
+
+ggplot(gym_events, aes(age)) + 
+  labs(title = "Age of Gymnastic Individual All-Around Atheles by Sex, 1896-2016", x = "Age", y = "Number of Athletes") +
+  geom_histogram(fill = "steelblue") + 
+  facet_wrap(~ sex, nrow = 2)
+
+```
+
+**Ch.2 Q4 Answer: Putting these distributions on top of each other we find that female Olympic gymnasts tend to be considerably younger than male Olympic gymnasts.**
+
+
+## Question 5
+
+```{r}
+ggplot(two_events, aes(event, height)) + 
+  labs(title = "Height of Olympic Athletes by Sex and Event, 1896-2016", x = "Event", y = "Height (cm)") +
+  scale_x_discrete(labels = c("Men's 100 Meter", "Women's 100 Meter", "Men's Gymnastics\nOverall", "Women's Gymnastics\nOverall")) + 
+  geom_boxplot()
+```
+**Ch.2 Q5 Answer: We find that male 100 meter athletes are the tallest, followed by female 100 meter athletes, male gymnasts, and finally female gymnasts.**
+
+## Question 6
+
+```{r fig.height = 5, fig.width = 8}
+
+us_medalists <- gold_medalists %>%
+  filter(noc == "USA")
+
+#us_medalists
+
+ggplot(us_medalists, aes(year, fill = sex)) + 
+  geom_bar()
+
+ggplot(us_medalists, aes(year, fill = sex)) +
+  labs(title = "Distribution of US Male and Female Olympic Gold Medalists, 1896-2016", x = "Year", y = "Number of Gold Medals Won by Sex") + 
+  scale_fill_manual(values = c("lightpink", "steelblue")) +
+  geom_bar(position = position_dodge(preserve = "single")) 
+
+
+```
+
+**Ch2 Q6 Answer: Based on this distribution of the number of gold medals won (by the US) by sex over time, we find that the number of male gold medal winners has been consistently greater than that of female gold medal winners into the 1980s. However, the number of female gold medal winners has been consistently growing since the onset of the 20th century and culminating to the 1990s where female athletes overtook men in the number of gold medals won. From about the 1990s into our most recent measurement of 2016, male and female athletes have been competing for the title of most gold medals.**
+
+
+
+
