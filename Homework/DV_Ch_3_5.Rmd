@@ -1,0 +1,512 @@
+---
+title: "DV_Ch_3_5"
+author: "Samuel Snelspn"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(fig.width = 8, fig.height = 5)
+
+```
+
+```{r}
+library(tidyverse)
+theme_set(theme_light(base_family = "Avenir"))
+library(here) 
+```
+
+# Chapters 1-3
+
+## Question 1
+
+```{r}
+
+
+exercise_data <- read_csv("Data/visualize_data.csv")
+
+exercise_data <- exercise_data %>% 
+  rename("exercise" = Exercise, "bmi" = BMI)
+
+glimpse(exercise_data)
+```
+
+**Right off the bat, I expect to see a negative relationship between exercise and BMI.**
+
+Looking at the bivariate correlation between recorded exercise and BMI.
+
+```{r}
+cor(exercise_data$exercise, exercise_data$bmi)
+```
+
+**The negative correlation of -0.06 indicates that there is a negative relationship. However it is quite small so there are likely other factors which are responsible for a persons BMI.**
+
+Visualizing this relationship
+
+```{r}
+ggplot(exercise_data, aes(exercise, bmi)) + 
+  geom_point()
+```
+
+**ha ha Nico good one.**
+
+## Question 2
+
+Looking at data about the Human Development Index (HDI) and Corruption Perception Index (CPI) from the corruptDF data set in the causact package.
+
+```{r}
+library(causact)
+glimpse(corruptDF)
+```
+
+**HDI2017 is a variable representing a nation's achievement in human development. It is an average of the nation's longevity, education, and income. The value ranges in the data set from 0.354 to 0.953 (so it may range from 0-1).**
+
+**CPI2017 represents a nations perceived public sector corruption. 0 indicates the highest level of corruption and 100 indicates a country is "clean" (or has the least corruption).**
+
+## Question 3
+
+```{r}
+hdi_cpi <- ggplot(corruptDF, aes(HDI2017, CPI2017)) 
+
+hdi_cpi + geom_point()
+```
+
+**Looking at this simple scatterplot, it appears that countries with higher ratings on human development have lower perceived corruption. This relationship appears moderately strong as there is variability in the perceived corruption in nations with approximately equal human development ratings.**
+
+## Question 4
+
+```{r}
+
+# Linear smoothing 
+hdi_cpi + 
+  geom_point() +
+  geom_smooth(method = "lm")
+
+# Generalized additive model 
+hdi_cpi + 
+  geom_point() + 
+  geom_smooth(method = "gam")
+
+```
+
+**I am not intimately familiar with the generalized additive model, but it seems that it modifies the GLM with quadratic coefficients (giving it a non-linear allowance, so to speak). The linear model maps a linear line of best fit (with formula y \~ x, but I am not sure what this means exactly).**
+
+**With these two options, I think I would prefer the generalized additive model because it looks like a better fit for the data. I will look more into the model specifics out of concern for thresholds for under and over fitting.**
+
+## Question 5
+
+```{r}
+ggplot(corruptDF, aes(HDI2017, CPI2017, color = region)) + 
+  geom_point()
+```
+
+**This visualization is a bit cluttered, so we'll try to facet wrap the human development measure on corruption by region.**
+
+```{r}
+hdi_cpi + 
+  geom_point() +
+  geom_smooth(method = "gam") + 
+  facet_wrap(~ region) 
+```
+
+**Here we get a better view of the relationship across nations.**
+
+## Question 6
+
+```{r}
+hdi_cpi + 
+  geom_point() +
+  geom_smooth(method = "gam") + 
+  scale_x_reverse() + 
+  facet_wrap(~ region) 
+```
+
+## Question 7
+
+```{r}
+hdi_cpi + 
+  geom_point() +
+  geom_smooth(method = "gam") + 
+  facet_wrap(~ region) + 
+  labs(title = "Human Development and Corruption Perception Ratings Across Regions",
+       subtitle = "Ratings Recorded in 2017", 
+       x = "Human Development Index (HDI)", 
+       y = "Corruption Perception Index (CPI)", 
+       caption = "\n Note: Data from 2017 Human Development Index (HDI) and Corruption Perceiption Index (CPI)")
+```
+
+## Question 8
+
+Saving the plot into a folder within the project folder.
+
+```{r}
+humdev_corr_2017 <- hdi_cpi + 
+  geom_point() +
+  geom_smooth(method = "gam") + 
+  facet_wrap(~ region) + 
+  labs(title = "Human Development and Corruption Perception Ratings Across Regions",
+       subtitle = "Ratings Recorded in 2017", 
+       x = "Human Development Index (HDI)", 
+       y = "Corruption Perception Index (CPI)", 
+       caption = "\n Note: Data from 2017 Human Development Index (HDI) and Corruption Perception Index (CPI)")
+
+ggsave(here("Figures", "humandev_corr.png"), plot = humdev_corr_2017, width = 8, height = 5)
+```
+
+# Chapter 4
+
+## Question 1
+
+```{r}
+tv_ratings <- read_csv("Data/tv_ratings.csv")
+glimpse(tv_ratings)
+```
+
+Looking at shows which have 5 seasons or more
+
+```{r}
+tv_long <- tv_ratings %>% 
+  group_by(title) %>% 
+  summarize(num_seasons = n()) %>% 
+  ungroup() %>% 
+  left_join(tv_ratings, by = "title")
+
+tv_long <- tv_long %>% 
+  filter(num_seasons >= 5)
+```
+
+Line plot of average ratings of shows across seasons.
+
+```{r}
+ggplot(tv_long, aes(seasonNumber, av_rating)) + 
+  geom_line(aes(group = title))
+```
+
+**Based on the raw line plot, the only thing that I can fairly make out is that average tv ratings have a considerable amount of variability across seasons.**
+
+## Question 2
+
+Faceting average ratings across seasons by genre.
+
+```{r, fig.height= 8, fig.width=15}
+ggplot(tv_long, aes(seasonNumber, av_rating)) + 
+  geom_line(aes(group = title)) + 
+  facet_wrap(~ genres)
+```
+
+**Overall, shows falling into the action, adventure, crime, drama, sport, and mystery categories (these being a non-exhaustive list), perform well in terms of average ratings. Drama is with the huge exception of the one show which absolutely tanked around its fifth season which we'll see below. It seems that average ratings across seasons are quite volatile. Shows can go up and down in terms of their popularity.**
+
+Finding the Drama, Family, and Fantasy show which tanked on its fifth season.
+
+```{r}
+tanker <- tv_long %>% 
+  filter(genres == "Drama,Family,Fantasy")
+```
+
+**Are You Afraid Of The Dark**
+
+## Question 3
+
+Looking at highly rated shows (average rating 9 or more)
+
+```{r}
+best_rated <- tv_ratings %>% 
+  filter(av_rating >= 9) %>% 
+  group_by(genres) %>% 
+  summarize(count = n())
+  
+
+ggplot(best_rated, aes(reorder(genres, -count), count)) + 
+  geom_bar(stat = "identity") + 
+  coord_flip()
+
+```
+
+**`coord_flip()` flips the orientation of the axes. This is helpful here because it makes the genre names legible.**
+
+**The genre with the top-rated show is Drama.**
+
+## Question 4
+
+```{r}
+comedies_drama <- tv_ratings %>% 
+  mutate(is_comedy = if_else(str_detect(genres, "Comedy"), 1, 0)) %>%
+  filter(is_comedy == 1 | genres == "Drama") %>% 
+  mutate(genres = if_else(genres == "Drama", "Drama", "Comedy"))
+
+glimpse(comedies_drama)
+```
+
+Density plot of average ratings for comedies and dramas
+
+```{r}
+ggplot(comedies_drama, aes(av_rating, fill = genres)) + 
+  geom_density(alpha = 0.5) + 
+  theme(legend.position = "top") + 
+  labs(fill = "") # Note legend title corresponds to the argument used (fill or color)
+```
+
+**You don't have to rip your hair out quite yet Nico, there are more Comedy shows than Dramas rated highly.**
+
+## Question 5
+
+```{r}
+ggplot(comedies_drama, aes(av_rating, fill = genres)) + 
+  geom_histogram(bins = 15) + 
+  theme(legend.position = "top") + 
+  labs(fill = "")
+```
+
+**While the density plot and the histogram are quite similar in terms of visual presentation (and the curved density plot is less jarring), the histogram shows us more precisely where the counts of average ratings are. The density plot tells us that there is a concentration of comedy genres around 8, and the histogram tells us there is a precise quantity at certain intervals of average ratings.**
+
+**Though, as you hint Nico, there seem to also be more genres which include comedy as an element than those including drama. A genre which includes both comedy and drama would be coded as comedy so there may be a bias there.**
+
+```{r}
+ggplot(comedies_drama, aes(av_rating, color = genres)) +
+  geom_freqpoly() + 
+  theme(legend.position = "top") + 
+  labs(color = "")
+```
+
+**`geom_polyfreq()` is more visually similar to the density plot, but it appears that it has employed some polynomial function to smooth the estimator line.**
+
+**Visually speaking, I much prefer the density plot because it is easiest on the eye and conveys the main message. However, as for which is most informative, I would say the histogram because it preserves more information. Though in truth, I don't think an audience would be particularly concerned with variability around small differences in average ratings.**
+
+## Question 6
+
+```{r}
+ggplot(comedies_drama, aes(av_rating, share)) + 
+  geom_bin_2d()
+
+ggplot(comedies_drama, aes(av_rating, share)) + 
+  geom_point()
+```
+
+**Relative to a scatterplot, honestly, it looks to me like the same information is there. Visually, `geom_bin_2d()` provides the map of counts by color gradient which makes it more clear where viewer share is concentrated. As for visual communication, that does provide this benefit of showing that most shows doesn't have much relative viewership (perhaps in a saturated market).**
+
+```{r}
+ggplot(comedies_drama, aes(av_rating, share, fill = genres)) + 
+  geom_bin_2d() + 
+  labs(fill = "") + 
+  theme(legend.position = "top")
+```
+
+**Looking across comedy and drama, we can see that most shows involving comedy are rated relatively high with fewer lower rated shows. Most shows involving drama are also rated comparably with comedy, but it appears that more dramas are rated relatively less.**
+
+What is the super popular drama?
+
+```{r}
+comedies_drama %>% 
+  filter(genres == "Drama") %>% 
+  group_by(title) %>% 
+  arrange(desc(av_rating))
+
+head(comedies_drama, 1)
+```
+
+**The fourth season of L.A. Law must have been something to behold as it makes up the largest share of viewership in that time.**
+
+# Chapter 5
+
+```{r}
+wncaa <- read_csv("Data/wncaa.csv")
+glimpse(wncaa)
+```
+
+## Question 1
+
+```{r}
+champs <- wncaa %>% 
+  filter(tourney_finish == "Champ") %>% 
+  group_by(school) %>% 
+  summarize(N = n()) %>% 
+  mutate(freq = N / sum(N), 
+         percent = round((freq * 100), 0))
+
+ggplot(champs, aes(reorder(school, percent), percent)) + 
+  geom_bar(stat = "identity") + 
+  coord_flip()
+```
+
+**The University of Connecticut and Tennesee are the two most winningest women's ncaa basketball teams in these records.**
+
+## Question 2
+
+```{r}
+champ_names <- unique(champs$school)
+
+winners <- wncaa %>% 
+  filter(school %in% champ_names)
+
+```
+
+Looking at the distribution of school seedings with box plots. 
+
+```{r}
+ggplot(winners, aes(seed, reorder(school, seed), color = school)) + 
+  geom_boxplot() + 
+  guides(color = "none")
+```
+
+**We see here that women's ncaa basketball team seedings are led by Tennessee, followed by UConn, Baylor, and Stanford.**
+
+**One surprise here is that North Carolina is seeded more highly then teams which have won more. This is probably explainable by them performing well in the regular season but not in the post-season.**
+
+```{r}
+ggplot(winners, aes(seed, reorder(school, seed), color = school)) + 
+  geom_violin() + 
+  guides(color = "none")
+```
+
+**Which one do I like better? I think that the boxplot is a more conventional form of presentation, but the violin plot does a better job at conveying the distribution of seedings for each school. The IQR of the boxplot conveys the distribution, but the width of the violin plot conveys this more directly.**
+
+## Question 3
+
+```{r}
+ggplot(winners, aes(seed, school)) + 
+  geom_point()
+```
+
+**This looks quite bad because the distribution is hidden by the discreteness of the points. There are multiple points stacked on top of each other but we cannot see this. A leafplot would show this for each individual school, but this would be cumbersome.**
+
+## Question 4
+
+Summary statistics on winning teams.
+
+```{r}
+winners_stat <- winners %>% 
+  group_by(school) %>% 
+  summarize_if(is.numeric, funs(mean, sd), na.rm = TRUE) %>% 
+  ungroup()
+```
+
+Looking at the average winning percentage of schools across seasons. 
+
+```{r}
+ggplot(winners_stat, aes(reorder(school, reg_percent_mean), reg_percent_mean)) + 
+  geom_point() + 
+  coord_flip()
+```
+
+**While Tennessee dominates in the post-season, their regular season performance over time has not been as good as UConn, Louisiana Tech, Baylor, and Stanford.**
+
+Incorporating standard deviations.
+
+```{r}
+ggplot(winners_stat, aes(reorder(school, reg_percent_mean), reg_percent_mean)) + 
+  geom_point() + 
+  geom_pointrange(aes(ymin = (reg_percent_mean - reg_percent_sd), ymax = (reg_percent_mean + reg_percent_sd))) +
+  coord_flip()
+```
+
+**Texas A&M has the narrowest range. But unfortunately for them, it doesn't make them any better at basketball.**
+
+Trying to do the same with `geom_linerange()`
+
+```{r}
+ggplot(winners_stat, aes(reorder(school, reg_percent_mean), reg_percent_mean)) + 
+  geom_point() + 
+  geom_linerange(aes(ymin = (reg_percent_mean - reg_percent_sd), ymax = (reg_percent_mean + reg_percent_sd))) +
+  coord_flip()
+```
+
+This one looks a bit better because of the smaller point size, but I fugure this is a trivial configuration. 
+
+## Question 5
+
+```{r}
+ggplot(winners, aes(reg_percent, full_percent)) + 
+  geom_point() + 
+  geom_abline()
+```
+
+**As you mention Nico, most teams don't perform as well in the tournament as they have in the regular season. It is also more likely for teams who have performed better in the regular season to perform better in the post-seasons relative to teams which performed worse in the regular season.**
+
+## Question 6
+
+```{r}
+winners <- winners %>% 
+  mutate(is_champ = if_else(tourney_finish == "Champ", 1, 0), 
+         is_champ = as.factor(is_champ))
+
+# Alternatively
+
+winnerz <- winners %>% 
+  mutate(is_champ = if_else(tourney_finish == "Champ", "Champ", "Loser"))
+```
+
+
+Plotting regular v. full season performance by champion status. 
+```{r}
+ggplot(winners, aes(reg_percent, full_percent, color = is_champ)) + 
+  geom_point() + 
+  labs(color = "")
+```
+
+**If you have a numerical coded dummy variable and don't factorize it for separating data by, then ggplot will treat the legend as a continuous gradient between 0 and 1. The plot will look the same because the dummy value takes on only 0 and 1. But when we factorize it (or define the variable as characters), the legend will also be just the two values.**
+
+**The pattern makes complete sense. Teams whose full season performance is better than predicted are those who have won the championship (meaning they have won every post-season game, by definition).**
+
+Fun alternative
+
+```{r}
+ggplot(winners, aes(reg_percent, full_percent, color = is_champ)) + 
+  geom_point() + 
+  labs(color = "")
+```
+
+## Question 7
+
+```{r}
+winners <- winners %>% 
+  mutate(plot_label = paste(school, year, sep = "-"), 
+         difference = full_percent - reg_percent)
+```
+
+Finding out which school-year was the worst for those who won and did not win the championship. 
+
+```{r}
+# Lowest regular season win percentage among non-champions that year
+worst_team_label <- winners %>% 
+  filter(is_champ == 0) %>% 
+  filter(reg_percent == min(reg_percent)) %>% 
+  select(plot_label)
+
+# Lowest regular season win percentage among champions that year. 
+worst_champ_label <- winners %>% 
+  filter(is_champ == 1) %>% 
+  filter(reg_percent == min(reg_percent)) %>% 
+  select(plot_label)
+
+
+ggplot(winners, aes(reg_percent, full_percent, color = is_champ)) + 
+  geom_point() + 
+  labs(color = "") + 
+  annotate(geom = "text", x = 52, y = 48, 
+           label = worst_team_label$plot_label) + 
+  annotate(geom = "text", x = 65, y = 77, 
+           label = worst_champ_label$plot_label)
+
+```
+
+## Question 8
+
+Unbeated teams
+
+```{r}
+unbeaten_teams <- winners %>% 
+  filter(reg_percent == 100 & full_percent == 100) %>% 
+  select(school, year) %>% 
+  arrange(desc(year))
+
+unbeaten_teams
+```
+
+**We find that UConn has gone undefeated six times (1995, 2002, 2009, 2010, 2014, and 2016). Texas went undefeated in 1986 and Baylor was undefeated in 2012.**
+
+
+
+
+
+
