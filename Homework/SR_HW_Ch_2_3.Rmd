@@ -1,0 +1,467 @@
+---
+title: "SR_HW_Ch_2_3"
+author: "Samuel Snelson"
+date: "`r Sys.Date()`"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(patchwork)
+library(rethinking)
+theme_set(theme_light(base_family = "Avenir"))
+```
+
+**2E1.** Which of the expressions below correspond to the statement: *the probability of rain on Monday?*
+
+   (2) $P(rain | Monday)$
+ 
+   (4) $\frac{P(rain, Monday)}{P(Monday)}$
+ 
+   (4) is correct because $P(rain | Monday) = \frac{P(rain, Monday)}{P(Monday)}$ via $P(W, L|p) = \frac{P(W, L, p)}{P(p)}$
+ 
+
+**2E2.** Which of the following statements corresponds to the expression: Pr(Monday|rain)?
+
+   (3) The probability that is is Monday, given that is it raining.
+ 
+
+**2E3.** Which of the expressions below correspond to the statement: *the probability that it is Monday, given that it is raining?*
+
+   (2) $P(Monday | rain)$
+ 
+   (4) $\frac{P(rain | Monday) \times P(Monday)}{P(rain)}$
+ 
+   2 = 4 equates to Bayes rule for producing the posterior distribution.
+
+**2E4.** The Bayesian statistician Bruno de Finetti (1906--1985) began his 1973 book on probability theory with the declaration: "PROBABILITY DOES NOT EXIST." he capitals appeared in the original, so I imagine de Finetti wanted us to shout this statement. What he meant is that probability is a de- vice for describing uncertainty from the perspective of an observer with limited knowledge; it has no objective reality. Discuss the globe tossing example from the chapter, in light of this statement. What does it mean to say "the probability of water is 0.7"?
+
+ In the context of the globe tossing example, the recognition that probability doesn't exist seems to emphasize the abstract nature of probability distributions when measuring discrete outcome variables (the number of events for water and land). It helps me to think of this distinction in relation to the posterior distribution and posterior predictive distribution as a way of returning to the metric we are concerned with. However, in dealing with proportions (such as the parameter p), probability distributions can be quite useful.
+
+**2M1.** Recall the globe tossing model from the chapter. Compute and plot the grid approximate posterior distribution for each of the following sets of observations. In each case, assume a uniform prior for p.
+
+  (1) W, W, W
+
+```{r}
+posterior_1 <- tibble(p_grid = seq(from = 0, to = 1, length.out = 1000), 
+                      prior = rep(1, 1000)) %>% 
+  mutate(likelihood = dbinom(3, size = 3, prob = p_grid)) %>% 
+  mutate(unstd_posterior = likelihood * prior) %>% 
+  mutate(posterior = unstd_posterior / sum(unstd_posterior))
+
+(plot_1 <- posterior_1 %>% 
+  ggplot(aes(p_grid, y = posterior)) + 
+  geom_point() + 
+  geom_line() + 
+  labs(title = "Posterior Distribution of Earth's Water and Land",
+       subtitle = "Data: (W, W, W)", 
+       x = "Probability of Water", 
+       y = "Posterior Probability") + 
+  theme(panel.grid = element_blank()))
+```
+
+ (2) W, W, W, L
+
+```{r}
+posterior_2 <- tibble(p_grid = seq(from = 0, to = 1, length.out = 1000), 
+                      prior = rep(1, 1000)) %>% 
+  mutate(likelihood = dbinom(3, size = 4, prob = p_grid)) %>% 
+  mutate(unstd_posterior = likelihood * prior) %>% 
+  mutate(posterior = unstd_posterior / sum(unstd_posterior))
+
+(plot_2 <- posterior_2 %>% 
+  ggplot(aes(p_grid, y = posterior)) + 
+  geom_point() + 
+  geom_line() + 
+  labs(title = "Posterior Distribution of Earth's Water and Land",
+       caption = "Data: (W, W, W, L)", 
+       subtitle = "Constant Prior", 
+       x = "Probability of Water", 
+       y = "Posterior Probability") + 
+  theme(panel.grid = element_blank()))
+```
+
+ (3) L, W, W, L, W, W, W
+
+```{r}
+posterior_3 <- tibble(p_grid = seq(from = 0, to = 1, length.out = 1000), 
+                      prior = rep(1, 1000)) %>% 
+  mutate(likelihood = dbinom(5, size = 7, prob = p_grid)) %>% 
+  mutate(unstd_posterior = likelihood * prior) %>% 
+  mutate(posterior = unstd_posterior / sum(unstd_posterior))
+
+(plot_3 <- posterior_3 %>% 
+  ggplot(aes(p_grid, y = posterior)) + 
+  geom_point() + 
+  geom_line() + 
+  labs(title = "Posterior Distribution of Earth's Water and Land",
+       caption = "Data: (L, W, W, L, W, W, W)", 
+       subtitle = "Constant prior",
+       x = "Probability of Water", 
+       y = "Posterior Probability") + 
+  theme(panel.grid = element_blank()))
+```
+
+**2M2.** Now assume a prior for p that is equal to zero when p $\lt$ 0.5 and is a positive constant when p $\geq$ 0.5. Again compute and plot the grid approximate posterior distribution for each of the sets of observations in the problem just above.
+
+ W, W, W
+
+```{r}
+posterior_4 <- tibble(p_grid = seq(from = 0, to = 1, length.out = 1000), 
+                      prior = c(rep(0, 500), rep(1, 500))) %>% 
+  mutate(likelihood = dbinom(3, size = 3, prob = p_grid)) %>% 
+  mutate(unstd_posterior = likelihood * prior) %>% 
+  mutate(posterior = unstd_posterior / sum(unstd_posterior))
+
+(plot_4 <- posterior_4 %>% 
+  ggplot(aes(p_grid, y = posterior)) + 
+  geom_point() + 
+  geom_line() + 
+  labs(title = "Posterior Distribution of Earth's Water and Land",
+       caption = "Data: (W, W, W)", 
+       subtitle = "Prior is Zero {0,0.5}, Constant Prior {0.5,1}",
+       x = "Probability of Water", 
+       y = "Posterior Probability") + 
+  theme(panel.grid = element_blank()))
+```
+
+ W, W, W, L
+
+```{r}
+posterior_5 <- tibble(p_grid = seq(from = 0, to = 1, length.out = 1000),
+                      prior = c(rep(0, 500), rep(1, 500))) %>% 
+  mutate(likelihood = dbinom(3, size = 4, prob = p_grid)) %>% 
+  mutate(unstd_posterior = likelihood * prior) %>% 
+  mutate(posterior = unstd_posterior / sum(unstd_posterior))
+         
+(plot_5 <- posterior_5 %>% 
+  ggplot(aes(p_grid, y = posterior)) + 
+  geom_point() + 
+  geom_line() + 
+  labs(title = "Posterior Distribution of Earth's Water and Land",
+       caption = "Data: (W, W, W, L)", 
+       subtitle = "Prior is Zero {0,0.5}, Constant Prior {0.5,1}",
+       x = "Probability of Water", 
+       y = "Posterior Probability") + 
+  theme(panel.grid = element_blank()))
+```
+
+
+ L, W, W, L, W, W, W
+
+```{r}
+posterior_6 <- tibble(p_grid = seq(from = 0, to = 1, length.out = 1000), 
+                      prior = c(rep(0, 500), rep(1, 500))) %>% 
+  mutate(likelihood = dbinom(5, size = 7, prob = p_grid)) %>% 
+  mutate(unstd_posterior = likelihood * prior) %>% 
+  mutate(posterior = unstd_posterior / sum(unstd_posterior))
+
+(plot_6 <- posterior_6 %>% 
+  ggplot(aes(p_grid, y = posterior)) + 
+  geom_point() + 
+  geom_line() + 
+  labs(title = "Posterior Distribution of Earth's Water and Land",
+       caption = "Data: (L, W, W, L, W, W, W)", 
+       subtitle = "Prior is Zero {0,0.5}, Constant Prior {0.5,1}",
+       x = "Probability of Water", 
+       y = "Posterior Probability") + 
+  theme(panel.grid = element_blank()))
+```
+
+
+**2M3.** Suppose there are two globes, one for Earth and one for Mars. he Earth globe is 70% covered in water. he Mars globe is 100% land. Further suppose that one of these globes—you don’t know which—was tossed in the air and produced a “land” observation. Assume that each globe was equally likely to be tossed. Show that the posterior probability that the globe was the Earth, conditional on seeing “land” $P(Earth|land)$, is 0.23.
+
+Here, we are interested in demonstrating that the posterior probability, $P(Earth | land)$, with bayes rule in this context. 
+
+$P(Earth | land) = \frac{P(land | Earth) \times P(Earth)}{P(land)}$ where $P(land) = \left[P(land | Earth) \times P(Earth)\right] + \left[P(land | Mars) \times P(Mars) \right]$
+
+Knowing the following values, we can compute the posterior probability $P(Earth | land)$
+
+- $P(Earth) = P(Mars) = 0.5$ 
+
+- $P(land | Earth) = 0.3$
+
+- $P(land | Mars) = 1$
+
+
+$P(Earth | land) = \frac{P(land | Earth) \times P(Earth)}{P(land)} = \frac{0.3 \times 0.5}{(0.3 \times 0.5) + (1 \times 0.5)} = \frac{0.15}{0.65} = 0.23$
+
+
+**2M4.** Suppose you have a deck with only three cards. Each card has two sides, and each side is either black or white. One card has two black sides. he second card has one black and one white side. he third card has two white sides. Now suppose all three cards are placed in a bag and shuffled. Someone reaches into the bag and pulls out a card and places it lat on a table. A black side is shown facing up, but you don’t know the color of the side facing down. Show that the probability that the other side is also black is 2/3. Use the counting method (Section 2 of the chapter) to approach this problem. his means counting up the ways that each card could produce the observed data (a black side facing up on the table).
+
+The posterior probability that the bottom face of a black card is also black is 2/3 because the odds of drawing the double black card are 2:1 relative to the black and white card. 
+
+[B,B] -> 2 ways of drawing black 
+[B,W] -> 1 way of drawing black 
+[W,W] -> 0 ways of drawing black 
+
+**2M5.** Now suppose there are four cards: B/B, B/W, W/W, and another B/B. Again suppose a card is drawn from the bag and a black side appears face up. Again calculate the probability that the other side is black.
+
+Here the only difference is in the likelihood that the other side of the black card is also black. Because there is another set of pathways for the bottom side to be black via the additional double black card, the odds are now 4:1, indicating that the probability is 4/5 of the other side being black. 
+
+**2M6.** Imagine that black ink is heavy, and so cards with black sides are heavier than cards with white sides. As a result, it’s less likely that a card with black sides is pulled from the bag. So again assume there are three cards: B/B, B/W, and W/W. After experimenting a number of times, you conclude that for every way to pull the B/B card from the bag, there are 2 ways to pull the B/W card and 3 ways to pull the W/W card. Again suppose that a card is pulled and a black side appears face up. Show that the probability the other side is black is now 0.5. Use the counting method, as before.
+
+Referencing question 2M4, the odds of the bottom face of the black card also being black were 2:1. Here we are modifying the likelihood of drawing cards (2x for [B,W] and 3x for [W,W]). This means that our new odds would be 2:2 (it would be equally likely that the bottom face of the black card was white or black because it is more likely that we have drawn [B,W]). The probability would be 0.5. 
+
+**2M7.** Assume again the original card problem, with a single card showing a black side face up. Before looking at the other side, we draw another card from the bag and lay it face up on the table. he face that is shown on the new card is white. Show that the probability that the first card, the one showing a black side, has black on its other side is now 0.75. Use the counting method, if you can. Hint: Treat this like the sequence of globe tosses, counting all the ways to see each observation, for each possible first card.
+
+Here, visualizing the branch is quite useful (though I have to learn how to produce this in a plot!). Oriented horizontally, the first row is the set of cards ([B,B] [B,W] [W,W]). For the first black face, there are three possible options is could be (either face from [B,B] or from [B,W]). Branched off from these three nodes are the possible combinations of cards containing white faces. The second row contains all options of face pairings which are distinct from the card they are connected to in the first row which contain white faces [B,W] and [W,W]. There are six (6) pathways through which the [B,B] card is the first card and the second card has a white face and two (2) pathways through which the [B,W] card is the first card and the second card has a white face. Therefore, there are 6 ways that the first card can be [B,B] out of 10 possibilities where the first card's face is black and second card's face is white. 
+
+
+# Chapter 3
+
+Setting ourselves up with the globe 
+
+```{r}
+
+globe <- tibble(p_grid = seq(from = 0, to = 1, length.out = 1000), 
+                prior = rep(1, 1000)) %>% 
+  mutate(likelihood = dbinom(6, size = 9, prob = p_grid)) %>% 
+  mutate(posterior = (likelihood * prior)) %>% 
+  mutate(posterior = posterior / sum(posterior))
+
+set.seed(100)
+
+samples <- globe %>% 
+  slice_sample(n = 1e4, weight_by = posterior, replace = T)
+
+samples %>% 
+  ggplot(aes(p_grid, posterior)) + 
+  geom_bar(stat = "identity") + 
+  labs(title = "10,000 Samples of Posterior Probability Distirbution of Globe Tosses", 
+       subtitle = "Data represent samples of the proportion of Earth covered by water",
+       x = "Proportion of Earth covered by water",
+       y = "Posterior probability")
+  
+```
+
+
+**3E1.** How much posterior probability lies below p = 0.2? 
+
+```{r}
+(below_20 <- samples %>% 
+  filter(p_grid < 0.2) %>% 
+  summarize(sum = n() / 1e4))
+```
+
+0.04% of the posterior probability distribution lies below p = 0.2. In other words, conceiving of the density of posterior probability as the concentration of plausibility, it is quite implausible that the Earth is covered 20% by water. 
+
+**3E2.** How much posterior probability lies above p = 0.8?
+
+```{r}
+(above_80 <- samples %>% 
+  filter(p_grid > 0.8) %>% 
+  summarize(sum = n() / 1e4))
+```
+
+11.2% of the posterior probability distribution lied above p = 0.8. It is relatively more plausible that the Earth is covered by 80% water. 
+
+**3E3.**  How much posterior probability lies between p = 0.2 and p = 0.8? 
+
+```{r}
+(between_20_80 <- samples %>% 
+  filter(p_grid > 0.2 & p_grid < 0.8) %>% 
+  summarize(sum = n() / 1e4))
+```
+
+88.8% of the posterior probability lies between the 0.2 < p < 0.8. We are pretty sure that the Earth is covered somewhere between 20% and 80% in water, but not sure more specifically yet. 
+
+**3E4.** 20% of the posterior probability lies below which value of p? 
+
+```{r}
+(q_20 <- samples %>% 
+  summarize("20th percentile" =  quantile(p_grid, prob = 0.2)))
+```
+
+20% of the posterior probability falls below p = 0.5185. That is to say that it is somewhat plausible (though 80% of the distribution is against this), that the Earth is covered in at least about half water. 
+
+**3E5.** 20% of the posterior probability lies above which value of p? 
+
+```{r}
+(q_80 <- samples %>% 
+   summarize("80th percentile" = quantile(p_grid, prob = 0.8)))
+```
+
+20% of the posterior probability falls above p = 0.7557. This also tells us that 60% of the posterior probability distribution falls between 0.5185 < p < 0.7557. 
+
+**3E6.** Which values of p contain the narrowest interval equal to 66% of the posterior probability? 
+
+```{r}
+(narrow_66 <- HPDI(samples$p_grid, prob = 0.66))
+
+(narrow_66 <- samples %>% 
+    summarize("Central 66 percent" = HPDI(p_grid, prob = 1))
+)
+
+samples %>% 
+  summarize()
+```
+
+0.5085 < p < 0.7734 is the narrowest interval containing 66% of the posterior probability. 
+
+
+**3E7.** Which values of p contain 66% of the posterior probability, assuming equal posterior probability both below and above the interval?
+
+```{r}
+# Central 66% of the posterior distribution has 17% lower and 17% higher
+# [0 17 [66% here] 83 100]
+(equal_66 <- samples %>% 
+   summarize("lower bound" = quantile(p_grid, p = 0.17), 
+             "upper bound" = quantile(p_grid, p = 0.83)))
+```
+
+0.503 < p < 0.770 is the interval which contains 66% of the posterior probability with equal remaining posterior probability on each tail. 
+
+**3M1.** Suppose the globe tossing data had turned out to be 8 water in 15 tosses. Construct the posterior distribution, using grid approximation. Use the same flat prior as before.
+
+```{r}
+new_globe <- tibble(p_grid = seq(from = 0, to = 1, length.out = 1000), 
+                prior = rep(1, 1000)) %>% 
+  mutate(likelihood = dbinom(8, size = 15, prob = p_grid)) %>% # 8 of 15 
+  mutate(posterior = (likelihood * prior)) %>% 
+  mutate(posterior = posterior / sum(posterior))
+
+(plot_new <- new_globe %>% 
+    ggplot(aes(p_grid, posterior)) + 
+    geom_point() + 
+    geom_line() + 
+    labs(title = "Posterior Distribution of Globe Tosses",
+         subtitle = "8 out of 15 tosses were water",
+         y = "Posterior probability",
+         x = "Proportion of Earth covered in water"))
+```
+
+
+**3M2.** Draw 10,000 samples from the grid approximation from above. Then use the samples to calculate the 90% HPDI for p.
+
+```{r}
+new_samples <- new_globe %>% 
+  slice_sample(n = 1e4, weight_by = posterior, replace = T)
+
+(hdpi_90 <- new_samples %>% 
+    summarize("hdpi_90" = HPDI(p_grid, prob = 0.9)))
+```
+
+From these 10,000 sample, 90% HDPI falls between 0.329 < p < 0.717. In other words, the narrowest interval containing 90% of the posterior probability distribution falls between the earth being covered 32.9% and 71.7% water. 
+
+**3M3.** Construct a posterior predictive check for this model and data. This means simulate the distribution of samples, averaging over the posterior uncertainty in p. What is the probability of observing 8 water in 15 tosses?
+
+```{r}
+# and we can simulate predictive observations based on the posterior probability distribution of p
+simulate_posterior <- tibble(count = rbinom(1e4, size = 15, prob = new_samples$p_grid))
+
+simplehist(simulate_posterior, 
+           xlab = "posterior predicted count of water")
+
+(prob_8 <- simulate_posterior %>% 
+  filter(count == 8) %>% 
+  summarize(freq = n()) %>% 
+  mutate(total = 1e4, 
+         prob = freq / total))
+
+```    
+
+The probability of getting 8 water observations on 15 tosses is 0.144. In context, first, we have generated a posterior distribution of parameters of the proportion of Earth covered by water (assuming a prior of 1). This was based on a binomial distribution of observing an event 8 times out of 15 total events. We then took 10,000 samples of parameters from this distribution. We then produced our posterior predictive distribution - an average of the 10,000 samples weighted on their plausibility (as a function of their posterior probability). The posterior predictive distribution represents the probability of each discrete count of events of water. 
+
+
+**3M4**. Using the posterior distribution constructed from the new (8/15) data, now calculate the probability of observing 6 water in 9 tosses.
+
+```{r}
+# Posterior predictive distribution of water counts for 9 tosses 
+prob_6_9 <- tibble(count = rbinom(1e4, size = 9, prob = new_samples$p_grid))
+
+prob_6_9 %>% 
+  pull(count) %>% 
+  simplehist(xlab = "posterior predicted count of water")
+
+
+(prob_6_9 %>% 
+  filter(count == 6) %>% 
+  summarize(freq = n()) %>% 
+  mutate(total = 1e4, 
+         prob = freq / total))
+
+```
+
+Of 9 tosses of the globe (given the posterior distribution of 8/15), the probability of getting 6 water observations is 0.173. 
+
+**3M5.** Start over at 3M1, but now use a prior that is zero below p = 0.5 and a constant above p = 0.5. This corresponds to prior information that a majority of the Earth’s surface is water. Repeat each problem above and compare the inferences. What difference does the better prior make? If it helps, compare inferences (using both priors) to the true value p = 0.7.
+
+```{r}
+new_globe_2 <- tibble(p_grid = seq(from = 0, to = 1, length.out = 1000), 
+                prior = c(rep(0, 500), rep(1, 500))) %>% 
+  mutate(likelihood = dbinom(8, size = 15, prob = p_grid)) %>% # 8 of 15 
+  mutate(posterior = (likelihood * prior)) %>% 
+  mutate(posterior = posterior / sum(posterior))
+
+(plot_new_2 <- new_globe_2 %>% 
+    ggplot(aes(p_grid, posterior)) + 
+    geom_point() + 
+    geom_line() + 
+    labs(title = "Posterior Distribution of Globe Tosses",
+         subtitle = "8 out of 15 tosses were water",
+         y = "Posterior probability",
+         x = "Proportion of Earth covered in water"))
+```
+
+Sampling from the new prior.  
+
+```{r}
+
+new_samples_2 <- new_globe_2 %>% 
+  slice_sample(n = 1e4, weight_by = posterior, replace = T)
+
+(hpdi_90_2 <- new_samples_2 %>% 
+    summarize("hpdi_90" = HPDI(p_grid, prob = 0.9)))
+
+```
+
+With the updated prior at zero until p = 0.5 and 1 after, 90% of the posterior distribution is contained with in the interval 0.501 < p < 0.714. This interval is mathematically biased to be after p = 0.5 relative to the previous uniform prior and thus is concentrated below about the same value as before and 0.5. 
+
+
+Posterior predictive check for the model with updated prior.
+
+```{r}
+simulation_2 <- tibble(count = rbinom(1e4, size = 15, prob = new_samples_2$p_grid))
+
+simplehist(simulation_2,
+           xlab = "posterior predicted count of water")
+
+
+simulation_2 %>% 
+  filter(count == 8) %>% 
+  summarize(total = 1e4,
+            freq = n()) %>% 
+  mutate(prob = freq / total)
+
+```
+
+The probability of observing 8 waters in 15 tosses is 0.158. This is slightly higher than the previous probability of 8/15, 0.147, it seems because the updated prior more accurately captures where the true value (0.7) is located. Though, the probability still isn't very high because counts with the highest probabilities will be closest to 8/15.
+
+
+Probability of 6/9
+
+```{r}
+prob_6_9_updated <- tibble(count = rbinom(1e4, size = 9, prob = new_samples_2$p_grid))
+
+prob_6_9_updated %>% 
+  pull(count) %>% 
+  simplehist()
+
+
+(prob_6_9_updated %>% 
+  filter(count == 6) %>% 
+  summarize(freq = n()) %>% 
+  mutate(total = 1e4, 
+         prob = freq / total))
+```
+
+The probability of getting 6 waters in 9 tosses has increased to 0.231 from 0.173, again (I think) because the prior has shifted the density in the posterior probability distribution above 0.5. Given the density under the curve still sums to 1, there would seem to be more density (posterior probability -> plausibility of event/parameter) above 0.5. 
+
+
+
+
+
