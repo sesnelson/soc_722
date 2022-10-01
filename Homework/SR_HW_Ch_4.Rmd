@@ -1,0 +1,454 @@
+---
+title: "Statistical Rethinking Ch.4 Homework"
+author: "Samuel Snelson"
+date: "`r Sys.Date()`"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(patchwork)
+library(rethinking)
+library(latex2exp)
+library(tidybayes)
+library(tidybayes.rethinking)
+library(splines)
+theme_set(theme_light(base_family = "Avenir"))
+```
+
+# Chapter 4
+
+\ \ 
+
+**4E1.** In the model definition below, which line is the likelihood? 
+
+\ 
+
+$$
+\begin{aligned}
+**y_i &\sim \text{Normal}(\mu, \sigma)** \\
+\mu &\sim \text{Normal}(0, 10) \\ 
+\sigma &\sim \text{Exponential}(1)
+\end{aligned}
+$$
+
+\ \ 
+
+**4E2.** How many parameters are in the model definition above? 
+
+\ 
+
+There are two (2) parameters - $(\mu, \sigma)$ 
+
+\ \ 
+
+**4E3.** Using the model definition above, write down the appropriate form of Bayes’ theorem that includes the proper likelihood and priors. 
+
+\ 
+
+$$
+Pr(\mu, \sigma) = \frac{\Pi_i \ \text{Normal}(y_i | \mu, \sigma)\  \text{Normal}(\mu | 0, 10) \ \text{Uniform}(\sigma | 0,50)}{\int \int \Pi_i \ \text{Normal}(y_i | \mu, \sigma) \ \text{Normal}(\mu | 0, 10)\ \text{Uniform}(\sigma | 0, 50)}
+$$
+
+\ \ 
+
+**4E4.** In the model definition below, which line is the linear model? 
+
+\  
+
+$$
+\begin{aligned}
+y_i &\sim \text{Normal}(\mu, \sigma) \\ 
+**\mu_i &= \alpha + \beta x_i** \\ 
+\alpha &\sim \text{Normal}(0, 10) \\
+\beta &\sim \text{Normal}(0,1) \\
+\sigma &\sim \text{Exponential}(2)
+\end{aligned}
+$$
+
+\ \ 
+
+
+**4E5.** In the model definition just above, how many parameters are in the posterior distribution? 
+
+\  
+
+There are three (3) parameters in the linear model (necessarily as it is a bivariate linear model) - $(\mu, \sigma, \alpha)$ 
+
+\ \ 
+
+**4M1.** For the model definition below, simulate observed y values from the prior (not the posterior). 
+
+\  
+
+$$
+\begin{aligned}
+y_i &\sim \text{Normal}(\mu, \sigma) \\ 
+\mu &\sim \text{Normal}(0, 10) \\
+\sigma &\sim \text{Exponential}(1)
+\end{aligned}
+$$
+
+\ \ 
+
+```{r}
+# How many simulated samples
+nsim <- 1e4
+
+set.seed(4)
+
+#generating simulated values of an outcome variable based on priors
+prior_sim <- tibble(
+  sample_mu = rnorm(nsim, 0, 10),
+  sample_sigma = rexp(nsim, 1)) %>% 
+  mutate(y = rnorm(nsim, mean = sample_mu, sd = sample_sigma))
+
+# Let's see what the distribution looks like 
+qplot(y, data = prior_sim)
+```
+
+\ \ 
+
+Just for conceptual validation, we have asserted that our parameters are distributed in particular ways - the mean (parameter) is normally distributed with its own mean of 0 and sd of 10; the standard deviation (parameter) is exponentially distributed with a growth rate of 2. This prior probability distribution then represents the distribution of simulated means and standard deviations drawn from 10,000 samples of their respective distributions.
+
+\ \ 
+
+**4M2.** Translate the model just above into a quap formula.
+
+
+
+```{r}
+sim_flist <- alist(
+  y ~ rnorm(mu, sigma),
+  mu ~ dnorm(0, 10),
+  sigma ~ rexp(1)
+)
+```
+
+\ \ 
+
+**4M3.** Translate the quap model formula below into a mathematic model definition. 
+
+\ 
+
+$$
+\begin{aligned}
+y_i &\sim \text{Normal}(\mu, \sigma) \\ 
+\mu_i &= \alpha + \beta x_i\\ 
+\alpha &\sim \text{Normal}(0,10) \\
+\beta &\sim \text{Uniform}(0,1) \\
+\sigma &\sim \text{Exponential}(1)
+\end{aligned}
+$$
+\ \ 
+
+**4M4.** A sample of students is measured for height each year for 3 years. After the third year, you want to it a linear regression predicting height using year as a predictor. Write down the mathematical model definition for this regression, using any variable names and priors you choose. Be prepared to defend your choice of priors. 
+
+\ 
+
+$$
+\begin{aligned}
+y_i &\sim \text{Normal}(\mu, \sigma) \\ 
+height_i &= \alpha + \beta year_i\\ 
+\alpha &\sim \text{Normal}(167,10) \\
+\beta &\sim \text{Uniform}(0,15) \\
+\sigma &\sim \text{Uniform}(0, 10)
+\end{aligned}
+$$
+
+\ 
+
+I think that height is normally distributed with an average of about 5ft 5in and a standard deviation of about 3.5in. I think that the rate of change ($\beta$) is approximately constant and would correspond to annual increases of up to 6in. I also think the standard errors are uniformly distributed because I don't think the difference in growth between high schoolers of similar years wouldn't be so different from each other (but giving about 3.5in of variability). 
+
+\ \ 
+
+**4M5.** Now suppose I remind you that every student got taller each year. Does this information lead you to change your choice of priors? How? 
+
+\ 
+
+This knowledge was incorporated into my previous prior, though I assumed that the growth rate was constant. However, I will updating my prior to be log normal for $\beta$ to reflect puberty-related increases in the growth rate. 
+
+\ 
+
+$$
+\begin{align}
+\beta \sim \text{logNormal}(0,1) \\
+\end{align}
+$$
+
+\ \ 
+
+**4M6.** If the variance of the height does not exceed 64cm, then I would update my prior about the standard deviation to limit the upper bound to 8cm - given $sd = \sqrt{variance}$.
+
+\  
+
+$$
+\begin{align}
+\sigma &\sim \text{Uniform}(0, 8) \\
+\end{align}
+$$
+
+\ \ 
+
+**4M7.** Refit model m4.3 from the chapter, but omit the mean weight xbar this time. Compare the new model’s posterior to that of the original model. In particular, look at the covariance among the parameters. What is different? hen compare the posterior predictions of both models. 
+
+```{r}
+# importing Howell1 data 
+data(Howell1)
+
+# subsetting for adult observations
+d <- Howell1 %>% 
+  filter(age >= 18) %>% 
+  mutate(cweight = weight - mean(weight)) %>% 
+  mutate(cheight = height - mean(height))
+
+mean_weight <- mean(d$weight)
+
+# quadratic approximation of posterior distribution of height (weigh predictor is mean centered)
+model_height_c <- quap(
+  alist(
+    height ~ dnorm(mu, sigma),
+    mu <- a + b*(d$weight - mean_weight),
+    a ~ dnorm(178, 20),
+    b ~ dlnorm(0, 1),
+    sigma ~ dunif(0, 50)),
+    data = d)
+
+# quadratic approximation of posterior distribution of height (with weight predictor)
+model_height <- quap(
+  alist(
+    height ~ dnorm(mu, sigma),
+    mu <- a + b*(d$weight),
+    a ~ dnorm(178, 20),
+    b ~ dlnorm(0, 1),
+    sigma ~ dunif(0, 50)),
+    data = d)
+
+```
+
+\ 
+
+Comparing the difference in the posterior distributions with covariance. 
+
+```{r}
+# Compare covariance of the parameters for each model 
+# Model with mean centering (of weight)
+vcov(model_height_c)
+
+# without mean centering of weight
+vcov(model_height)
+```
+
+\ 
+
+We find that the direction of the covariances of the parameters are preserved across centering. However, as McElreath discusses as well, centering has a tendency to deflate the covariance of these parameters. This indicates that, because the functional form of the relationship has not changed, the rescaled weight value has influenced the covariance. 
+
+\ 
+
+Sampling with `tidy_draws()` to generate and plot posterior predictive distributions for the unmodified and (weight) mean centered model.  
+
+
+```{r}
+# Taking samples from centered and non-centered posterior distributions
+draws_c <- tidy_draws(model_height_c, n = 100)
+draws <- tidy_draws(model_height, n = 100)
+
+
+# drawing samples for ribbons 
+ppsims_c <- predicted_draws(model_height_c,
+                            newdata = d,
+                            draws = 100)
+
+
+ppsims <- predicted_draws(model_height, 
+                          newdata = d, 
+                          draws = 100)
+
+
+# generating ribbon boundaries of 89% HDPI
+ppsims_c <- ppsims %>% 
+  group_by(.row) %>% 
+  mutate(lo_bound = HPDI(.prediction)[1],
+         hi_bound = HPDI(.prediction)[2])
+
+ppsims <- ppsims %>% 
+  group_by(.row) %>% 
+  mutate(lo_bound = HPDI(.prediction)[1],
+         hi_bound = HPDI(.prediction)[2])
+
+
+
+# plotting posterior predictive estimates on observed data(mean centered predictor, weight)
+p1 <- ggplot(draws_c) + 
+  geom_abline(aes(intercept = a,
+                  slope = b),
+              alpha = 0.2) + 
+  geom_point(data = d,
+             aes(x = cweight, 
+                 y = height), 
+             alpha = 0.2) + 
+  labs(x = "Weight (kg)",
+       y = "Height (cm)",
+       caption = "Note: Weight mean centered \n with 89% HDPI") + 
+  geom_ribbon(data = ppsims_c,
+              aes(cweight,
+                  ymax = hi_bound,
+                  ymin = lo_bound),
+              alpha = 0.1) + 
+  theme(aspect.ratio = 1)
+
+# plotting same posterior predictive estimates on observed data (with no mean center for weight predictor)
+p2 <- ggplot(draws) + 
+  geom_abline(aes(intercept = a,
+                  slope = b),
+              alpha = 0.2) + 
+  geom_point(data = d,
+             aes(x = weight, 
+                 y = height), 
+             alpha = 0.2) + 
+  labs(x = "Weight (kg)",
+       y = "Height (cm)",
+       caption = "Note: with 89% HDPI") + 
+  geom_ribbon(data = ppsims,
+              aes(weight,
+                  ymax = hi_bound,
+                  ymin = lo_bound),
+              alpha = 0.1) + 
+  theme(aspect.ratio = 1)
+
+p1 + p2 + plot_annotation(title = "Posterior Estimates and Observed Data", subtitle = "100 samples of lines for height on weight")
+```
+
+\ 
+
+Notice that the only difference in these two plots above is their x-axis labeling! Centering is, in my view, primarily an tool to make our alphas more interpretable. Importantly also, as Nico has mentioned, centering variables can help in maximum-likelihood estimations (compared to an estimator searching for some modal value far away on a variable scale). 
+ 
+\ \ 
+
+**4M8.** In the chapter, we used 15 knots with the cherry blossom spline. Increase the number of knots and observe what happens to the resulting spline. Then adjust also the width of the prior on the weights—change the standard deviation of the prior and watch what happens. What do you think the combination of knot number and the prior on the weights controls?
+
+
+\ 
+
+Off the bat, let's make explicit our priors as to the functional form of this relationship between the knots and the day of the year? 
+
+\ 
+
+$$
+\begin{align}
+doy_i &\sim \text{Normal}(\mu_i, \sigma) \\ 
+\mu_i &= \alpha + \sum^K_{k=1} w_k B_{k,i} \\ 
+\alpha &\sim \text{Normal}(100, 10) \\
+w_i &\sim \text{Normal}(0,10) \\ 
+\sigma &\sim \text{Exponential}(1)
+\end{align}
+$$
+
+\ 
+
+For the distribution of the day of the year the cherry blossoms blossom, our priors are the following. The day of the year the flower blossoms is normally distributed with mean $/mu$ and standard deviation $\sigma$. $\mu_i$ is a function of $\alpha$ plus the sum of all knots in the basis function (including the weight $w_k$ and basis value $B_{k,i}$). $\alpha$ is normally distributed with mean 100 and standard deviation 10. Our weights are normally distributed with mean 0 and standard deviation 10 (this makes sense because this figures in positive and negative local slopes or curves). The standard deviation of the day of the year variable is distributed exponentially with a growth rate of 1. 
+
+\ 
+
+```{r}
+data(cherry_blossoms)
+cb <- cherry_blossoms
+
+# Summarizing the cherry blossom distribution 
+cb %>% 
+  gather() %>% 
+  group_by(key) %>% 
+  summarise(mean = mean(value, na.rm = T),
+            sd = sd(value, na.rm = T), 
+            upper_limit = quantile(value, prob = 0.055, na.rm = T),
+            lower_limit = quantile(value, prob = 0.945, na.rm = T)) %>% 
+  mutate_if(is.double, round, digits = 2)
+
+# dropping missing values of day of year 
+cb <- cb %>% 
+  drop_na(doy)
+
+
+## Generating functional form with spline approach ##
+
+num_knots_15 <- 15
+num_knots_50 <- 50
+knot_list_15 <- quantile(cb$year, probs = seq(from = 0, to = 1, length.out = num_knots_15))
+knot_list_50 <- quantile(cb$year, probs = seq(from = 0, to = 1, length.out = num_knots_50))
+
+# Understanding check: knots refer to the combination of the weight and basis value in the linear model of the variable doy. 1 knot would imply that the whole distribution is estimated with 1 lines, n knots would imply that the distribution is estimated with n lines (locally weighted to influence the slope). 
+
+# B-Spline for cubic estimation 
+B_15 <- bs(cb$year,
+        knots = knot_list_15[-c(1, num_knots_15)], 
+        # bs generates the first and last knot by default 
+        degree = 3, # meaning a cubic polynomial
+        intercept = TRUE) 
+
+B_50 <- bs(cb$year, 
+           knots = knot_list_50[-c(1, num_knots_50)],
+           degree = 3, 
+           intercept = TRUE)
+
+# quadratically approximating  posterior distribution of doy estimates 
+cb_with_quap_15 <- quap(
+  alist(
+    D ~ dnorm(mu, sigma),
+    mu <- a + B_15 %*% w,
+    a ~ dnorm(100, 10),
+    w ~ dnorm(0, 10), 
+    sigma ~ dexp(1)), 
+  data = list(D = cb$doy, B = B_15), 
+  start = list(w = rep(0, ncol(B_15))))
+
+cb_with_quap_50 <- quap(
+  alist(
+    D ~ dnorm(mu, sigma),
+    mu <- a + B_50 %*% w,
+    a ~ dnorm(100, 10),
+    w ~ dnorm(0, 10), 
+    sigma ~ dexp(1)), 
+  data = list(D = cb$doy, B = B_50), 
+  start = list(w = rep(0, ncol(B_50))))
+
+# wrangling posterior distribution to plot 
+post <- extract.samples(cb_with_quap_15)
+post2 <- extract.samples(cb_with_quap_50)
+w <- apply(post$w, 2, mean) # calculating the mean of the weight (2 = column)
+w2 <- apply(post2$w, 2, mean)
+
+# Plot for 15 splines and sigma distributed exponentially with growth rate = 1
+plot(NULL, 
+     xlim = range(cb$year), 
+     ylim = c(-6,6),
+     xlab = "year", 
+     ylab = "basis * weight",
+     main = "Spline estimates for the distribution of DOY across time",
+     sub = "\n Sigma ~ Exponential(1), Knots = 15")
+for (i in 1:ncol(B_15)) lines(cb$year, w[i] * B_15[, i])
+
+
+# plot for 50 splines and sigma distributed exponentially with growth rate = 1
+plot(NULL, 
+     xlim = range(cb$year), 
+     ylim = c(-6,6),
+     xlab = "year", 
+     ylab = "basis * weight",
+     main = "Spline estimates for the distribution of DOY across time",
+     sub = "\n Sigma ~ Exponential(1), Knots = 50")
+for (i in 1:ncol(B_50)) lines(cb$year, w[i] * B_50[, i])
+```
+
+\ 
+ 
+This second plot is definitely not right. It looks like it has just clustered all the values before sometime in the early 15th century. For this assignment, I will finish here, but will return to these darn splines soon! 
+
+ 
+
+
+
+
+
