@@ -1,0 +1,626 @@
+---
+title: "Statistical Rethinking Chapter 5 Homework"
+author: "Samuel Snelson"
+date: "`r Sys.Date()`"
+output:
+  html_document: 
+    theme: united
+    toc: true 
+    numbered_sections: true
+---
+
+```{=html}
+<style type="text/css">
+
+body {
+font-family: Georgia, serif;
+font-size: 16px
+}
+
+code.r {
+font-size: 14px
+}
+
+</style>
+```
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(fig.align = "center")
+library(tidyverse)
+library(dplyr)
+library(patchwork)
+library(rethinking)
+library(tidybayes)
+library(tidybayes.rethinking)
+library(readr)
+theme_set(theme_light(base_family = "Avenir"))
+```
+
+\ \ 
+
+## Easy
+### 5E1.
+Which of the linear models below are multiple linear regressions?
+
+
+
+$$
+\begin{align}
+(1) \ \ \mu_i &= \alpha + \beta x_i  \\ 
+(2) \ \ \mu_i &= \beta_x x_i + \beta_z z_i & \text{*}\leftarrow\\ 
+(3) \ \ \mu_i &= \alpha + \beta (x_i - z_i) \\ 
+(4) \ \ \mu_i &= \alpha + \beta_x x_i + \beta_z z_i & \leftarrow \\ 
+\\ 
+\text{* But pr} & \text{obably not a good one}
+\end{align}
+$$ 
+
+Option (4) is an example of a multiple regression equation because combination of an intercept and multiple predictor variables ($\alpha + \beta_x x_i + \beta_z z_i$). (2) is interesting as it contains multiple predictor variables (the same as in (4)) but assumes an alpha of 0.
+
+Just to think about what this means does, I made some some fake data with a positive relationship and made two lines - one calculated with normal OLS procedures and the other set to 0. Based on the plot below, we see that it interferes with the estimation of predicted values. Values can be underestimated or overestimated depending on where data is concentrated relative to y = x. I am not confidence whether it is or its not a multiple linear regression equation, semantically speaking. It is an multivariable estimator which generally systematically misestimates values.
+
+\ 
+
+
+```{r}
+set.seed(10)
+
+# producing some data with a positive relationship 
+df <- tibble(
+  x = seq(from = 0, to = 100, length.out = 100),
+  y = rnorm(100, x, sd = 15))
+
+labs = c("OLS Slope", "Zero Bound Slope")
+
+# Plotting the estimated lines of best fit where the intercept is and isn't constrained at 0. 
+ggplot(df, aes(x, y)) + 
+  geom_point() + 
+  geom_abline(aes(slope = (cov(x, y) / var(x)), 
+                  intercept = (mean(y) - ((cov(x, y) / var(x)) * mean(x))), 
+                  color = labs[1],)) +
+  geom_abline(aes(slope = (cov(x, y) / var(x)), 
+                  intercept = 0,
+                  color = labs[2])) + 
+  xlim(-15, 115) + 
+  ylim(-15, 115) + 
+  theme(legend.title = element_blank()) + 
+  theme(aspect.ratio = 1/2)
+
+```
+
+
+\ \ 
+
+### 5E2.
+Write down a multiple regression to evaluate the claim: *Animal diversity is linearly related to latitude, but only after controlling for plant diversity*.
+
+\ 
+
+$$
+\begin{align}
+ Animal_i   &  \sim \text{Normal}(\mu_i, \sigma) \\ 
+ \mu_i \ &  = \alpha + \beta_L Lat_i + \beta_P Plant_i
+\end{align}
+$$ 
+\ \ 
+
+### 5E3. 
+Write down a multiple regression to evaluate the claim: *Neither amount of funding nor size of laboratory is by itself a good predictor of time to PhD degree; but together these variables are both positively associated with time to degree*. Write down the model definition and indicate which side of zero each slope parameter should be on.
+
+\ 
+
+$$
+\begin{align}
+Time_i \text{*}  &\sim \text{Normal}(\mu_i, \sigma) \\ 
+\mu_i &= \alpha + \beta_F Fund_i + \beta_s Size_i \\ 
+\alpha &\sim \text{Normal}(0, 0.2) \\
+Fund_i \text{**} &\sim \text{Normal}(0.5, 0.2) \\ 
+Size_i &\sim \text{Normal}(-0.25, 0.1) \\ 
+\sigma &\sim \text{Exponential}(1)
+\\
+\\ 
+\text{* Time} & \text{ measured in months} \\ 
+\text{** Fund} & \text{s measured in 1000s}
+\end{align}
+$$ 
+\ 
+
+My justification for these priors is this. I believe that the more funding a student has in their PhD program, the faster they will graduate (e.g., Education programs tending to take longer because of actions required to obtain funding). Within 2.5 standard deviations, this relationship is positive to capture my belief that it is positive but to tolerate some uncertainty. I believe that the larger a lab is, the longer it will take for a student to graduate. This may be attributable to limited attention given by advisers and senior members, but I don't think that this relationship is very strong because of a number of confounding variables (e.g., lab engagement; discipline). I have defined this variable's variability more broadly to account for uncertainty in it's effect on time to degree.
+
+\ \ 
+
+### 5E4.
+Suppose you have a single categorical predictor with 4 levels (unique values), labeled A, B, C and D. Let $A_i$ be an indicator variable that is 1 where case $i$ is in category $A$. Also suppose $B_i$, $C_i$, and $D_i$ for the other categories. Now which of the following linear models are inferentially equivalent ways to include the categorical variable in a regression? Models are inferentially equivalent when it's possible to compute one posterior distribution from the posterior distribution of another model.
+
+\ 
+
+$$
+\begin{align}
+(1) \ \ \mu_i &= \alpha + \beta_AA_i + \beta_BB_i + \beta_DD_i   & \leftarrow \\ 
+(2) \ \ \mu_i &= \alpha + \beta_AA_i + \beta_BB_i + \beta_CC_i + \beta_DD_i  \\ 
+(3) \ \ \mu_i &=\alpha + \beta_BB_i + \beta_CC_i + \beta_DD_i & \leftarrow \\ 
+(4) \ \ \mu_i &= \alpha_AA_i + \alpha_BB_i + \alpha_CC_i + \alpha_DD_i & \leftarrow\\ 
+(5) \ \ \mu_i &= \alpha_A(1 - B_i - C_i - D_i) + \alpha_BB_i + \alpha_CC_i + \alpha_DD_i & \leftarrow \\
+\end{align}
+$$
+
+\ 
+
+Options (1) and (3) are more easily identifiable as inferentially equivalent because they imply that the missing 4th category is the reference category (represented by $\alpha$. (4) is inferentially equivalent because each alpha represents the predicted value of the outcome variable for members of its corresponding group. This appears equivalent to an index version of the category variable - $\alpha_{category[i]}$. (5) is also inferentially equivalent because $\alpha_A(1 - B_i - C_i - D_i)$ reduces to $\alpha_AA_i$ and thus being equivalent to (4). To my understanding, this is because $(A_i + B_i + C_i + D_i) = n$, or all members of the sample. Thus, $(1 - B_i + C_i + D_i) = A_i$, or all members in category $A$ of the sample.
+
+Option (2) is not inferentially equivalent with the others because it does not have a reference category. I am not exactly sure what this means mathematically, but this implies that $\alpha$ represents the predicted value for members of the sample which are not in any group (when presumably all members of the sample fall into at least one group).
+
+\ \ 
+
+## Medium
+### 5M1.
+Invent your own example of a spurious correlation. An outcome variable should be correlated with both predictor variables. But when both predictors are entered in the same model, the correlation between the outcome and one of the predictors should mostly vanish (or at least be greatly reduced). 
+
+\ 
+
+I'll use a similar example (analytically) to McElreath's to demonstrate this, but with the relationship between nba player size and three-point percentage as predictor variables for free throw percentage. I define the fake data to generate a negative association between size and three-point percentage. In "reality" it is actually three-point percentage which predicts free throw percentage, not size. In other words, its not about how big some one is that affects their free throws, but whether or not they can shoot. Big men can show free throws if they are also good at shooting threes.  
+
+\ 
+
+```{r}
+
+n <- 100
+set.seed(85)
+
+# fake data of simulated "real" world
+df <- tibble(
+  height = rnorm(n), # "real" world 3-point 
+  three_pct = rnorm(n, mean = -height),  # height (cm) 
+  free_pct = rnorm(n, mean = three_pct)) # ft % 
+
+# to visualize these bivariate relationships
+ggplot(df, aes(height, three_pct)) + 
+  geom_point()
+
+ggplot(df, aes(three_pct, free_pct)) + 
+  geom_point()
+
+ggplot(df, aes(height, free_pct)) + 
+  geom_point()
+
+# generating three posterior distributions for the models with height, three-point percentage, and them together
+model1 <- quap(
+  alist(
+    free_pct ~ dnorm(mu, sigma), 
+    mu <- a + bH * height, 
+    a ~ dnorm(0, 0.2), 
+    bH ~ dnorm(0, 0.5), 
+    sigma ~ dexp(1)
+  ), data = df
+)
+
+model2 <- quap(
+  alist(
+    free_pct ~ dnorm(mu, sigma), 
+    mu <- a + bT * three_pct, 
+    a ~ dnorm(0, 0.2), 
+    bT ~ dnorm(0, 0.5), 
+    sigma ~ dexp(1)
+  ), data = df
+)
+
+model3 <- quap(
+  alist(
+    free_pct ~ dnorm(mu, sigma), 
+    mu <- a + bH * height + bT * three_pct, 
+    a ~ dnorm(0, 0.2), 
+    bH ~ dnorm(0, 0.5), 
+    bT ~ dnorm(0, 0.5), 
+    sigma ~ dexp(1)
+  ), data = df
+)
+
+# drawing from each posterior distribution and tidying up the data 
+post1 <- tidy_draws(model1, n = 1e4) %>% 
+  select(a:sigma) %>% 
+  pivot_longer(everything(), names_to = "term", values_to = "value") %>% 
+  group_by(term) %>% 
+  summarize(mean = mean(value),
+            sd = sd(value),
+            low = quantile(value, prob = 0.055, na.rm = T), 
+            high = quantile(value, prob = 0.945, na.rm = T)) %>% 
+  mutate(model = "Height (cm)")
+
+post2 <- tidy_draws(model2, n = 1e4) %>% 
+  select(a:sigma) %>% 
+  pivot_longer(everything(), names_to = "term", values_to = "value") %>% 
+  group_by(term) %>% 
+  summarize(mean = mean(value),
+            sd = sd(value),
+            low = quantile(value, prob = 0.055, na.rm = T), 
+            high = quantile(value, prob = 0.945, na.rm = T)) %>%
+  mutate(model = "Three Point Percentage")
+
+post3<- tidy_draws(model3, n = 1e4) %>% 
+  select(a:sigma) %>% 
+  pivot_longer(everything(), names_to = "term", values_to = "value") %>% 
+  group_by(term) %>% 
+  summarize(mean = mean(value),
+            sd = sd(value),
+            low = quantile(value, prob = 0.055, na.rm = T), 
+            high = quantile(value, prob = 0.945, na.rm = T)) %>%   
+  mutate(model = "Full Model")
+
+# merging three data frames together
+post_list <- list(post1, post2, post3)
+
+post_full <- post_list %>% 
+  reduce(full_join) 
+
+# looking at the mean coefficient estimates and their 89% compatibility intervals
+post_full %>% 
+  filter(term %in% c("bH", "bT")) %>% 
+  ggplot(aes(mean, model, color = term)) + 
+  geom_point() +  
+  geom_linerange(aes(xmin = low, xmax = high)) + 
+  geom_vline(aes(xintercept = 0), color = "black") + 
+  facet_wrap(~ model, nrow  = 3) + 
+  labs(y = "", 
+       x = "Mean Posterior Slope Coefficient", 
+       title = "Posterior Slope Coefficients Across Models") 
+
+```
+
+
+When we control for a basketball player's three-point percentage, the effect of their height goes essentially to zero. Thus, the negative relationship between height and free throw percentage is spurious. Taller NBA players would lobby for these findings to be immediately published I suspect. 
+
+\ \ 
+
+### 5M2.
+Invent your own example of a masked relationship. An outcome variable should be correlated with both predictor variables, but in opposite directions. And the two predictor variables should be correlated with one another.
+
+\ 
+
+Let's stick with the basketball example but think of a set predictors that might be oppositely associated with free throw percentage. Here we are looking to demonstrate  masked relationship, where controlling for both predictors reveals that an effect is present when it wasn't in the bivariate case. Let's use height again as a predictor and, just for fun, the length of a players career (taller players may be more likely to get injured physiologically).
+
+
+```{r}
+n <- 100
+set.seed(86)
+
+# fake data of simulated "real" world
+df <- tibble(
+  height = rnorm(n), # "real" world 3-point % 
+  career = rnorm(n, mean = -height),  # height (cm) 
+  free_pct = rnorm(n, mean = height + career)) # ft % 
+
+# to visualize these bivariate relationships
+ggplot(df, aes(career, height)) + 
+  geom_point()
+
+ggplot(df, aes(career, free_pct)) + 
+  geom_point()
+
+ggplot(df, aes(height, free_pct)) + 
+  geom_point()
+
+# generating three posterior distributions for the models with height, number of twitter followers, and both together
+model1 <- quap(
+  alist(
+    free_pct ~ dnorm(mu, sigma), 
+    mu <- a + bC * career, 
+    a ~ dnorm(0, 0.2), 
+    bC ~ dnorm(0, 0.5), 
+    sigma ~ dexp(1)
+  ), data = df
+)
+
+model2 <- quap(
+  alist(
+    free_pct ~ dnorm(mu, sigma), 
+    mu <- a + bH * height, 
+    a ~ dnorm(0, 0.2), 
+    bH ~ dnorm(0, 0.5), 
+    sigma ~ dexp(1)
+  ), data = df
+)
+
+model3 <- quap(
+  alist(
+    free_pct ~ dnorm(mu, sigma), 
+    mu <- a + bH * height + bC * career, 
+    a ~ dnorm(0, 0.2), 
+    bH ~ dnorm(0, 0.5), 
+    bC ~ dnorm(0, 0.5), 
+    sigma ~ dexp(1)
+  ), data = df
+)
+
+# drawing from each posterior distribution and tidying up the data 
+post1 <- tidy_draws(model1, n = 1e4) %>% 
+  select(a:sigma) %>% 
+  pivot_longer(everything(), names_to = "term", values_to = "value") %>% 
+  group_by(term) %>% 
+  summarize(mean = mean(value),
+            sd = sd(value),
+            low = quantile(value, prob = 0.055, na.rm = T), 
+            high = quantile(value, prob = 0.945, na.rm = T)) %>% 
+  mutate(model = "Length of NBA Career (Seasons)")
+
+post2 <- tidy_draws(model2, n = 1e4) %>% 
+  select(a:sigma) %>% 
+  pivot_longer(everything(), names_to = "term", values_to = "value") %>% 
+  group_by(term) %>% 
+  summarize(mean = mean(value),
+            sd = sd(value),
+            low = quantile(value, prob = 0.055, na.rm = T), 
+            high = quantile(value, prob = 0.945, na.rm = T)) %>%
+  mutate(model = "Height (cm)")
+
+post3<- tidy_draws(model3, n = 1e4) %>% 
+  select(a:sigma) %>% 
+  pivot_longer(everything(), names_to = "term", values_to = "value") %>% 
+  group_by(term) %>% 
+  summarize(mean = mean(value),
+            sd = sd(value),
+            low = quantile(value, prob = 0.055, na.rm = T), 
+            high = quantile(value, prob = 0.945, na.rm = T)) %>%   
+  mutate(model = "Full Model")
+
+# merging three data frames together
+post_list <- list(post1, post2, post3)
+
+post_full <- post_list %>% 
+  reduce(full_join) 
+
+# looking at the mean coefficient estimates and their 89% compatibility intervals
+post_full %>% 
+  filter(term %in% c("bH", "bC")) %>% 
+  ggplot(aes(mean, model, color = term)) + 
+  geom_point() +  
+  geom_linerange(aes(xmin = low, xmax = high)) + 
+  geom_vline(aes(xintercept = 0), color = "black") + 
+  facet_wrap(~ model, nrow  = 3) + 
+  labs(y = "", 
+       x = "Mean Posterior Slope Coefficient", 
+       title = "Posterior Slope Coefficients Across Models") 
+```
+
+\ 
+
+Note that because our predictors are inversely correlated, we do not use McElreath's approach to subtract the predictors from each other to generate the outcome distribution. Here Height is normally distributed. The length of a player's career is normally distributed and negatively related to height (information about height goes into length of career). In the case that our secondary predictor is positively associated from the first, we want to subtract the overlap (because it is accounted in its own variable and in the secondary variable associated with it). In the case of negatively associated predictor variables, we have to add them together to generate out outcome distribution because the secondary predictor was subtracted from the primary predictor. 
+
+\ 
+
+This language of primary and secondary predictor variables is also useful in conceptualizing masking. In this context, height is our primary predictor and career length is our secondary. If we do not account for the primary predictor, despite its contribution to variability in the secondary predictor, the relationship between the secondary predictor and the outcome will mask the effect of the primary predictor. When we consider variability in the predictor variable, its effect on the outcome becomes apparent. 
+
+\ \ 
+
+### 5M3.
+It is sometimes observed that the best predictor of fire risk is the presence of firefighters. States and localities with many firefighters also have more fires. Presumably firefighters do not cause fires. Nevertheless, this is not a spurious correlation. Instead fires cause firefighters. Consider the same reversal of causal inference in the context of the divorce and marriage data. How might a high divorce rate cause a higher marriage rate? Can you think of a way to evaluate this relationship, using multiple regression?
+
+
+\ 
+
+If the marriage and divorce rates were reverse-causally related, then we would consider that changes in a state's divorce rate cause changes in that state's marriage rate. However, we can evaluate this relationship by considering if there are any unobserved confounding variables. Such a variable, when accounted for in a model, would result in the decrease or elimination of the relationship between divorce rates and marriage rates. This would look like the DAG below: 
+
+\ 
+
+```{r}
+
+coord_dag <- list(
+  x = c(D = 0, M = 2, U = 1), 
+  y = c(D = 2, M = 2, U = 0.5))
+
+m1 <- ggdag::dagify(M ~ D, 
+                    M ~ U, 
+                    D ~ U, 
+                    coords = coord_dag)
+
+ggdag::ggdag(m1) + 
+  theme_void() + 
+  theme(aspect.ratio = 0.75)
+
+```
+
+
+\ 
+
+We could simply test if the relationship between a state's divorce rate and marriage rate is spurious by controlling for a confounding variable which influences both divorce and marriage rate. Assume all of the following variables are standardized. 
+
+\ \ 
+
+$$
+\begin{align}
+\text{Model 1:} & \text{ No controls} \\
+\\
+Divorce_i &\sim \text{Normal}(\mu_i, \sigma) \\ 
+\mu_i &= \alpha + \beta_M Marriage_i  \\
+\alpha &\sim \text{Normal}(0, 0.2) \\ 
+\beta_M &\sim \text{Normal}(0, 0.5) \\ 
+\sigma &\sim \text{Exponential}(1)
+\\ 
+\\
+\text{Model 2:} & \text{ Controlling for unobserved confounder} \\
+\\
+Divorce_i &\sim \text{Normal}(\mu_i, \sigma) \\ 
+\mu_i &= \alpha + \beta_M Marriage_i + \beta_c Confounder_i \\
+\alpha &\sim \text{Normal}(0, 0.2) \\ 
+\beta_M &\sim \text{Normal}(0, 0.5) \\
+\beta_C &\sim \text{Normal}(0, 0.5) \\
+\sigma &\sim \text{Exponential}(1)
+\end{align}
+$$
+\ \ 
+
+This is articulated in more abstract than concrete terms. If we were to estimate the effects of divorce rate on marriage rate, it may be non-zero. However, once we include the confounder in the model, the effect of divorce rate on marriage rate would decrease substantially or disappear. A potential confounder, for example, might be the number of lawyers per capita in a state with the logic that the more lawyers there are in a state, the more marriages and divorces there will be independently. 
+
+\ \ 
+
+### 5M4.
+In the divorce data, States with high numbers of members of the Church of Jesus Christ of Latter-day Saints (LDS) have much lower divorce rates than the regression models expected. Find a list of LDS population by State and use those numbers as a predictor variable, predicting divorce rate using marriage rate, median age at marriage, and percent LDS population (possibly standardized). You may want to consider transformations of the raw percent LDS variable.
+
+\ 
+
+First, let's fetch data on the LDS percentage by state and put that together with our WaffleDivorce dataset. Note that in this exercise, the LDS percentage dataset is from 2022 and the divorce and other measures come from the 2000s (coming from McElreath's rethinking package). I would not join these datasets in a project with consequences for measurement validity, but here I do just for demonstration. 
+
+
+```{r}
+
+# Data on percentage of latter-day saints across states
+  # source: https://worldpopulationreview.com/state-rankings/mormon-population-by-state
+lds <- read_csv("Data/lds_by_state.csv")
+
+# standardizing LDS population percentage 
+lds <- lds %>% 
+  mutate(pct_s = standardize(mormonRate))
+
+data(WaffleDivorce)
+d <- WaffleDivorce
+
+d <- d %>% 
+  rename(State = Location)
+
+df <- full_join(lds, d, by = "State") %>% 
+  mutate(age_s = standardize(MedianAgeMarriage),
+         divorce_s = standardize(Divorce), 
+         marriage_s = standardize(Marriage)) %>%
+  select(pct_s, age_s, marriage_s, divorce_s) %>% 
+  drop_na()
+
+```
+
+\ 
+
+Now we can consider what the relationship between these looks like. 
+
+\ 
+
+$$
+\begin{align}
+Divorce_i &\sim \text{Normal}(\mu_i, \sigma) \\
+\mu_i &= \alpha + \beta_A Age_i + \beta_M Marriage_i + \beta_L LDS_i \\
+\alpha &\sim \text{Normal} (0, 0.2) \\ 
+\beta_A &\sim \text{Normal}(0, 0.5) \\ 
+\beta_M &\sim \text{Normal}(0, 0.5) \\ 
+\beta_L &\sim \text{Normal}(0, 0.5) \\
+\sigma &\sim \text{Exponential}(1) 
+\end{align}
+$$
+\ 
+
+With this model definition, we can define our priors in R and generate a posterior distribution based on the measures for LDS percentage by state and from WaffleDivorce. 
+
+\ 
+
+```{r}
+divorce_post <- quap(
+  alist(
+    divorce_s ~ dnorm(mu, sigma), 
+    mu <- a + bA * age_s + bM * marriage_s + bL * pct_s, 
+    a ~ dnorm(0, 0.2), 
+    bA ~ dnorm(0, 0.5), 
+    bM ~ dnorm(0, 0.5), 
+    bL ~ dnorm(0, 0.5),
+    sigma ~ dexp(1)
+  ), data = df
+)
+
+divorce_draws <- tidy_draws(divorce_post, n = 1e4)
+
+
+divorce_draws <- divorce_draws %>% 
+  select(a: sigma) %>% 
+  pivot_longer(everything(), names_to = "term", values_to = "value") %>% 
+  group_by(term) %>% 
+  summarize(mean = mean(value), 
+            low = quantile(value, prob = 0.055), 
+            high = quantile(value, prob = 0.945))
+  
+divorce_draws %>% 
+  filter(term %in% c("bA", "bL", "bM")) %>% 
+  ggplot(aes(mean, term, color = term)) + 
+  geom_point() + 
+  geom_linerange(aes(xmin = low, xmax = high)) + 
+  geom_vline(aes(xintercept = 0), color = "gray") + 
+  labs(title = "Posterior Slope Coefficients",
+       x = "Posterior Mean Slope", 
+       y = "") + 
+  theme(legend.title = element_blank()) + 
+  theme(aspect.ratio = 1)
+
+```
+
+
+\ 
+
+Without going too deeply into interpretation, I have plotted the posterior mean slope coefficients for each predictor variable. We see that the effect of marriage rate on divorce rate is quite small, with some variability on both sides. The percentage of LDS members in a state is negatively associated with divorce rate as is the median age at marriage. In other words, the more persons affiliating with LDS there are in a state, the lower the expected divorce rate is. For the age predictor, the older a state's median age at marriage is, the lower the state's expected divorce rate is. 
+
+
+\ \ 
+
+### 5M5.
+One way to reason through multiple causation hypotheses is to imagine detailed mechanisms through which predictor variables may inluence outcomes. For example, it is sometimes argued that the price of gasoline (predictor variable) is positively associated with lower obesity rates (outcome variable). However, there are at least two important mechanisms by which the price of gas could reduce obesity. First, it could lead to less driving and therefore more exercise. Second, it could lead to less driving, which leads to less eating out, which leads to less consumption of huge restaurant meals. Can you outline one or more multiple regressions that address these two mechanisms? Assume you can have any predictor data you need.
+
+\ 
+
+To get a sense of what these relationships look like, let's draw a DAG to capture the causal relations proposed here. 
+
+\ 
+
+
+```{r}
+
+coord_dag <- list(
+  x = c(G = 1, Dr = 3, Ex = 5, Eat = 5, Ob = 7),
+  y = c(G = 5, Dr = 5, Ex = 5.1, Eat = 4.9, Ob = 5))
+
+m <- ggdag::dagify(Ob ~ Ex, 
+                   Ex ~ Dr, 
+                   Dr ~ G, 
+                   Ob ~ Eat, 
+                   Eat ~ Dr,
+                   Dr ~ G, 
+                   coords = coord_dag)
+
+ggdag::ggdag(m) + 
+  theme_void()
+
+```
+
+
+\ 
+
+This appears to be the structure of the causal relationships described above. Gas prices is negatively related to driving, which is positively associated with exercise and negatively associated with eating out. Exercise is presumed to be negatively associated with obesity and eating out is positively associated with obesity. 
+
+\ 
+
+Now let's unpack how we might break down the mechanisms. We can go through each stage of the stepwise regressions implied by this DAG and write out the model definitions: 
+
+\ 
+
+$$
+\begin{align}
+\text{Model 1:} & \text{ Total Effect of Gas Prices}\\
+\\
+Obesity_i &= \alpha + \beta_G Gas_i \\
+\\
+\\
+\text{Model 2:} & \text{ Partial Effects of Gas and Driving} \\
+\\
+Obesity_i &= \alpha + \beta_G Gas_i + \beta_D Driving_i\\
+\\
+\\
+\text{Model 2:} & \text{ Partial Effects of Gas, Driving, and Exercise} \\
+\\
+Obesity_i &= \alpha + \beta_G Gas_i + \beta_D Driving_i + \beta_Ex Exercise_i \\
+\\
+\\
+\text{Model 2:} & \text{ Partial Effects of Gas, Driving, Exercise, and Eating Out} \\
+\\
+Obesity_i &= \alpha + \beta_G Gas_i + \beta_D Driving_i + \beta_Ex Exercise_i + \beta_E Eat_i\\
+\end{align}
+$$
+\ \ 
+\ \ 
+\ \ 
+\ \ 
+
+Thanks for all your help Nico, you're awesome! 
+\ \ 
+\ \ 
