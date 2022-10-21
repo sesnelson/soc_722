@@ -1,0 +1,318 @@
+---
+title: "Statistical Rethinking Chapter 7: Over and Under Fitting"
+author: "Samuel Snelson"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    theme: flatly
+  
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(patchwork)
+library(rethinking)
+library(tidybayes)
+library(tidybayes.rethinking)
+library(latex2exp)
+library(data.table)
+theme_set(theme_light(base_family = "Avenir"))
+```
+
+
+## Easy 
+
+### 7E1. 
+State the three motivating criteria that define information entropy. Try to express each in your own words.
+
+1. A measure of information entropy should be continuous because changes in the probability of some event should have proportionate changes in the uncertainty. If uncertainty were measured discretely, than an edge case would be that a small change in the probability of an event, if the change enters into a different level of discrete uncertainty, would not be consistent. 
+
+2. Uncertainty should increase with more events. The larger the sample space of events are, the more uncertain we are which event will occur. We can consider a concrete example. If a group of friends is deciding between two restaurants to go to on an evening, there is less uncertainty evinced by the same decision with 25 possible restaurants. 
+
+3. The incorporation of multiple sources of uncertainty should be additive. I think of this as the formalization of the second point. As we consider more sources of uncertainty (via more events), capturing increasing uncertainty can be achieved simply by taking the sum of the respective measures of uncertainty. 
+
+\ \ 
+
+### 7E2. 
+Suppose a coin is weighted such that, when it is tossed and lands on a table, it comes up heads 70% of the time. What is the entropy of this coin?
+
+We first recall the formula for Information Entropy: \ 
+
+$$
+\Large H(p) = \sum_{i=1}^n p_i \log(p_i)
+$$
+
+\ 
+
+We can simply compute this formula when $p = 0.7$
+
+$$
+\Large H(p) = -((0.7 \times \log(0.7)) + (0.3 \times \log(0.3))) \approx 0.61
+$$
+
+This die - its probability distribution - has an entropy of about 0.61.
+
+What does this even mean? Here is a visualization I find helpful (though it assumes two events, the semi-circular form scales up).
+
+```{r, fig.align='center'}
+# Data frame with sequence of probabilities and computed entropy
+
+p <- seq(0.001, 0.999, by = 0.001)
+
+d <- data.frame(
+  p = p,
+  x = -((p*log(p)) + ((1-p) * log(1-p))))
+
+# plot of entropy across probabilities 
+ggplot(d, aes(p, x)) + 
+  geom_line() + 
+  scale_x_continuous(breaks = seq(from = 0, to = 1, by = 0.1)) + 
+  geom_vline(xintercept = 0.7, linetype = 2, alpha = 0.5) + 
+  geom_hline(yintercept = 0.61, linetype = 2, alpha = 0.5) + 
+  labs(title = "Distribution of Entropy Across Probability", 
+       x = "probability", 
+       y = "entropy", 
+       caption = TeX(r'($-\sum ( p_i \times  \log(p_i))$)')) + 
+  theme_classic() + 
+  theme(text = element_text(family = "Avenir")) + 
+  theme(plot.caption = element_text(size = 15)) 
+```
+
+
+This plot shows the distribution of entropy across the space of probabilities between 0 and 1 (truthfully values close to 0 and close to 1 because R doesn't like log(0)). An entropy measure of 0.61 indicates that it isn't far off from being maximally uncertain (assuming two events).
+
+\ \ 
+
+### 7E3. 
+Suppose a four-sided die is loaded such that, when tossed onto a table, it shows “1” 20%, “2” 25%, “3” 25%, and “4” 30% of the time. What is the entropy of this die? 
+
+In this case, we repeat the same procedure with this new set of probabilities. This question defines a probability distribution of 4 events with the probabilities defined. 
+
+$$
+H(p) = -((0.2 \times \log(0.2))+2 (0.25 \times \log(0.25))+(0.3 \times \log(0.3))) \approx 1.37
+$$
+*This* die - its probability distribution - has an entropy of 1.376. 
+
+### 7E4. 
+Suppose another four-sided die is loaded such that it never shows “4”. The other three sides show equally often. What is the entropy of this die?
+
+Again, we repeat the same procedure with this probability distribution (with three events having $\frac{1}{3}$ probability of occurring and the fourth with 0 probability)
+
+
+$$
+H(p) = -3(0.33 \times \log(0.33)) \approx 1.1 
+$$
+Let's think about what we've just done here. When an event has $\frac{1}{3}$ probability, there is some uncertainty as to whether or not it will happen. This the nature of probability - measuring our uncertainty of the likelihood an event will occur. If an event has 0 probability of occurring, there is no uncertainty - it will not happen, so there is no entropy contributed to the distribution from this event. 
+
+\ \ 
+
+### 7M1. 
+Write down and compare the definitions of AIC and WAIC. Which of these criteria is most general? Which assumptions are required to transform the more general criterion into a less general one?
+
+$$
+\begin{align}
+AIC &= -2lppd + 2p \\ 
+\\ 
+WAIC &= -2(lppd - \sum_ivar_{\theta}\log p(y_i | \theta))
+\end{align}
+$$
+
+I will note first here that the log-pointwise-predictive-density is a measure of the average out-of-sample accuracy of a fitted model (here computed on the posterior distribution) as an approximation of the expected log-pointwise-predictive-density for new data. That was a bit circular but in measures of the lppd, we are looking at $p(y_i | \hat{\theta})$, the probability of observing some data given a corresponding estimated posterior distribution. To get the lppd, we average these log probabilities over all values of the posterior distribution and sum for all observations. With this we have an estimation of the out-of-sample accuracy (probability of getting actual observations given the posterior model we've estimated. Thus, we are really interested in the predictive accuracy of the posterior distribution (i.e., Bayesian fitted model) but cannot compare it to unobserved data so we use within-sample cross-validation techniques to get at this. 
+
+Based on Akaike's insight that the difference between within-sample and out-of-sample (via some folding) lppd is approximately 2 times the number of free parameters in the model, the Akaike Information Criterion was born. As deviance is a scaled estimate of the true lppd (for unobserved data), the 2p functions as a penalty or correction (with respect to the true lppd) for the number of parameters used. As noted by McElreath on 219, the AIC is a reliable approximation of the model's average out-of-sample deviance only when: 
+1. Priors are flat (or overwhelmed by the likelihood of observing the data given the priors)
+2. The posterior distribution is approximately multivariate Gaussian
+3. n $\gg$ k 
+
+
+The Widely Appicable Information Criterion (WAIC) was developed to resolve some of the generality issues of previous measures - hence widely applicable. WAIC makes no distribution assumptions for the posterior. Compared to the AIC, the WAIC does not need flat priors or a multivariate Gaussian posterior. And under certain circumstances, the n $\gg$ k assumption is resolved when additional parameters decrease the penalty term. To the question posed here, the assumptions needed to make the WAIC into the AIC are these three discussed here (under some circumstances (e.g., MLMs) not so much the third).
+
+
+\ \ 
+
+### 7M2. 
+Explain the difference between model selection and model comparison. What information is lost under model selection?
+
+Model selection, in the context of predictive information criterion, is the process of ranking models by their information criteria and selecting the model which performs best (minimizes some set of information criterion). Let's say we are on some project and are tasked with selecting the model with the most accurate out-of-sample prediction. One researcher may rank order information criterion and select the model with the lowest estimated deviance and verify with information criterion depending on the distributional form of the posterior. Another researcher considers a set of models with different functional forms and parameters and similarly weighs their deviances and information criterion but preserves them. Model comparison is then about considering the  uncertainty each model contains relative to the estimation of out-of-sample predictive accuracy which model selection throws away with the selection of the maximally ranked model. 
+
+
+\ \ 
+
+### 7M3. 
+When comparing models with an information criterion, why must all models be it to exactly the same observations? What would happen to the information criterion values, if the models were it to different numbers of observations? Perform some experiments, if you are not sure.
+
+Simply put, comparing the information criterion of models with different sample sizes is comparing different objects. because information criterion represent sums over observations, one cannot rank models because models with larger sample sizes, despite being drawn from the same distributional process, are going to have larger information criterion values.
+
+We can see this with the simulation below. 
+
+
+```{r}
+data1 <- tibble(x = standardize(rnorm(n = 1e4)))
+
+data2 <- tibble(x = standardize(rnorm(n = 1e4 + 500)))                
+
+m1 <- quap(
+  alist(
+    x ~ dnorm(mu, 1), 
+    mu ~ dnorm(0, 1)), data = data1)
+
+m2 <- quap(
+  alist(
+    x ~ dnorm(mu, 1), 
+    mu ~ dnorm(0, 1)), data = data2)
+                
+w1 <- tibble(WAIC(m1)) %>% 
+  mutate(model = "1e4")
+
+w2 <- tibble(WAIC(m2)) %>% 
+  mutate(model = "1e4 + 500")
+
+
+w <- rbind(w1, w2) %>% 
+  setDT()
+
+w
+
+```
+
+
+
+\ \ 
+
+### 7M4. 
+What happens to the effective number of parameters, as measured by PSIS or WAIC, as a prior becomes more concentrated? Why? Perform some experiments, if you are not sure.
+
+When priors become more concentrated, the model under fits data and the posterior distribution is proportionately narrowed (underfit and posterior narrowing are one on the same). When the posterior distribution is narrow, the model is also proportionately more confident that parameter values fall between a particular range (whether or not they are accurate). This confidence is inversely related to the penalty term, not precisely speaking, so as priors become more concentrated the penalty term decreases. 
+
+Let's do some simulations to show this. 
+
+```{r}
+data <- tibble(y = rnorm(n = 100))
+
+
+m1 <- quap(
+  alist(
+    y ~ dnorm(mu, 1), 
+    mu ~ dnorm(0, 1)
+  ), data = data)
+
+m0.5 <- quap(
+  alist(
+    y  ~ dnorm(mu, 1), 
+    mu~ dnorm(0, 0.5)
+  ), data = data)
+
+m0.2 <- quap(
+  alist(
+    y ~ dnorm(mu, 1),
+    mu ~ dnorm(0, 0.2)
+  ), data = data)
+
+pen1 <- tibble(WAIC(m1)) %>% 
+  mutate(model = 1)
+
+pen0.5 <- tibble(WAIC(m0.5)) %>% 
+  mutate(model = 0.5)
+
+pen0.2 <- tibble(WAIC(m0.2)) %>% 
+  mutate(model = 0.2)
+
+
+pen <- rbind(pen1, pen0.5, pen0.2) %>% 
+  select(model, penalty) %>% 
+  setDT()
+
+pen
+```
+
+
+
+
+\ \ 
+
+### 7M5. 
+Provide an informal explanation of why informative priors reduce over fitting.
+
+Informative priors reduce over fitting because they teach a model about regular features of a distribution derived from one's knowledge of the data generating process and possible ranges parameters can fall in. If we are unsure of the range parameters may take and thus use priors with relatively larger standard deviations, then the model is more likely to use parameters which are farther from 0 and which no not reflect regular features of the distribution (resulting in over fitting). If we iuuse informative priors (which constrain the distribution of parameters), then then the model will be restricted to the ranges of parameter values which comport with however we have defined them (reducing over fitting with respect to the reference we have defined in the priors). 
+
+McElreath provides a useful visual of this: 
+
+```{r, fig.align='center'}
+dem <- tibble(
+  x = rnorm(1e5, 0, 1), 
+  y = rnorm(1e5, 0, 0.5), 
+  z = rnorm(1e5, 0, 0.2)
+)
+
+ggplot(dem) + 
+  geom_density(aes(x), linetype = 2) + 
+  geom_density(aes(y), size = 0.5) + 
+  geom_density(aes(z), size = 1) + 
+  scale_x_continuous(breaks = seq(-3, 3, by = 1), limits = c(-3, 3)) + 
+  theme(aspect.ratio = 0.75) +
+  labs(x = "parameter value")
+```
+
+We are referring to standardized predictors here, and note that the wider the distribution of parameter values (i.e., non-informative prior), the more the model may overfit based on this wider range of possible parameters.  
+
+\ \ 
+
+### 7M6. 
+Provide an informal explanation of why overly informative priors result in under fitting.
+
+I described above that informative priors can reduce over fitting because, to the extent that the informative priors capture regular features of the model, they prevent the model from using parameters which extend far above or below its average. However, when priors are overly informative (such as in the standardized case of $\beta \sim N(0, 0.2)$) they can actually increase the in-sample deviance relative to informative-enough priors, so to speak (shown in plot below). Thinking conceptually, if a model has too much information about the regular features of a distribution, it will become insensitive to in-sample changes because it has a strong presumption of the distribution given by the priors. 
+
+We can visualize this using the approach McElreath takes when he discusses regularization: 
+
+```{r, fig.align='center'}
+n <- 1e4
+kseq <- 1:5
+n_cores <- 4
+
+
+make_sim <- function(n, b_sigma) {
+  sapply(kseq, function(k) {
+    print(k);
+    r <- mcreplicate(n, sim.train.test(N = n, k = k, b_sigma = b_sigma), 
+                     mc.cores = n_cores);
+    c(mean(r[1, ]), mean(r[2, ]), sd(r[1, ]), sd(r[2, ])) }) %>% 
+    as_tibble()
+}
+
+# generating and cleaning up test data 
+test <- tibble(
+  n = rep(c(20, 100), each = 3), 
+  b_sigma = rep(c(1, 0.5, 0.2), times = 2)) %>% 
+  mutate(sim = map2(n, b_sigma, make_sim)) %>% 
+  unnest(cols = c(sim))
+
+test <- test %>% 
+  mutate(statistic = rep(c("mean", "sd"), each = 2) %>% rep(., times = 3 * 2),
+         sample    = rep(c("in", "out"), times = 2) %>% rep(., times = 3 * 2)) %>% 
+  gather(n_par, value, -n, -b_sigma, -statistic, -sample) %>% 
+  spread(key = statistic, value = value) %>% 
+  mutate(n     = str_c("n = ", n) %>% factor(., levels = c("n = 20", "n = 100")),
+         n_par = str_remove(n_par, "V") %>% as.double())
+
+
+# plotting deviance across models with different priors 
+ggplot(test, aes(n_par, mean, group = interaction(sample, b_sigma))) + 
+  geom_line(aes(color = sample, size = b_sigma %>% as.character())) + 
+  geom_point(data = test, 
+             aes(group = sample, fill = sample)) + 
+  scale_size_manual(values = c(1, 0.5, 0.2)) + 
+  labs(title = "Deviance of Models with Prior SD 1, 0.5, 0.2",
+       x = "number of parameters", 
+       y = "deviance") + 
+  facet_wrap(~ n, scale = "free_y") + 
+  theme(legend.position = "none", 
+        panel.grid= element_blank(), 
+        aspect.ratio = 0.75)
+```
+
+With some more time, I would figure out how to appropriately label the legend. But for these purposes, we will note that the thickest line is for 0.2, medium is for 0.5, thinnest for and 0.
+
+
+
