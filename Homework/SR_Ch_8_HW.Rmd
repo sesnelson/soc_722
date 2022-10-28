@@ -1,0 +1,274 @@
+---
+title: "SR_Ch_8_HW"
+author: "Samuel Snelson"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(patchwork)
+library(rethinking)
+library(tidybayes)
+library(tidybayes.rethinking)
+library(latex2exp)
+library(data.table)
+library(ggeffects)
+library(ggthemes)
+library(performance)
+library(modelsummary)
+library(gt)
+library(gtExtras)
+theme_set(theme_light(base_family = "Avenir"))
+```
+
+
+## Easy Questions
+### 8E1. 
+For each of the causal relationships below, name a hypothetical third variable that would lead to an interaction effect.
+
+\ \ 
+
+1. Bread dough rises because of yeast
+- If bread is prepared in a humid environment, it may rise at an increased rate than in a dry environment. \ \ 
+
+2. Education leads to higher income 
+- The returns of education may depend on the kind of school a person attended (Among 4-year degrees, community college, state university, highly ranked university) \ \ 
+
+3. Gasoline makes a car go 
+- Presuming "go" is speed, the effect of gasoline on the speed of a car may vary by the type of car (e.g., SUV vs sports car) 
+
+\ \ 
+
+### 8E2. 
+Which of the following explanations invokes an interaction? 
+
+\ \ 
+
+1. Caramelizing onions requires cooking over low heat and making sure the onions do not dry out  \ 
+
+**Interaction Implied!**  \ 
+
+In this context, both low heat and dryness have direct effects on caramelization. Additionally, low heat and dryness together contribute an additional effect on caramelization. The effect of low heat on caramelization is greater when the onions are not dry relative to when the onions are dry. This implies the converse in which the effect of dryness (or the lack) on caramelization is greater when the onions are cooked at low heat relative to high heat.  \ \ 
+
+2. A car will go faster when it has more cylinders or when it has a better fuel injector. \ 
+
+**No Interaction Implied :(** \ 
+
+Here, we consider what the relationship of speed, number of cylinders, and quality of fuel injector. Having more cylinders increases speed and having a better fuel injector increases speed. However, it does not seem plausible that there would be some multiplicative increase in speed when a car has more cylinders and a better fuel injector but rather two separate contributions to speed. This is also given by the use of "or" in the statement. \ \ 
+
+3. Most people acquire their political beliefs from their parents, unless they get them instead from their friends.  \ 
+
+**No Interaction Implied :(** \ 
+
+This situation does not appear to imply an interaction because there are two separate processes - parents influence their childrens' political beliefs and childrens' friends influence their political beliefs. Because the statement implies an either-or scenario with "unless", there does not appear to be an interaction. In concept, however, if parents' influence on their childrens' political beliefs depended on their friends' influences (i.e., was moderated by, either to increase the effect or decrease it), then an interaction would be present. In reality, I think there may be an interaction but the statement does not imply one.  \ \ 
+
+4. Intelligent animal species tend to be either highly social or have manipulative appendages (hands, tentacles, etc.). \ 
+
+**No Interaction Implied :(** \ 
+
+Here, sociability is positively associated with intelligence in animals. So too is having manipulative appendages positively associated with intelligence. Is the effect of sociability on intelligence greater (or less) when the animal has manipulative appendages? Because "intelligent animals species tend to be either" social or have manipulative appendages, there does not appear to be any additional contribution aside from the two direct effects. 
+
+
+\ \ 
+
+### 8E3. 
+For each of the explanations in 8E2, write a linear model that expresses the stated relationship.
+
+\ 
+
+$$
+\begin{align}
+Caramel_i & = \alpha + \beta_1 Dry_i + \beta_2 Heat_i + \beta_3 + Dry_i Heat_i \\
+Speed_i & = \alpha + \beta_1 Cylinder_i + \beta_2 Fuel_i \\
+Beliefs_i &= \alpha + \beta_1 Parent_i  + \beta_2 Friend_i \\ 
+Smart_i &= \alpha + \beta_1 Social_i + \beta_2 Append_i 
+\end{align}
+$$
+
+\ \ 
+
+## Medium Problems
+### 8M1. 
+Recall the tulips example from the chapter. Suppose another set of treatments adjusted the temperature in the greenhouse over two levels: cold and hot. The data in the chapter were collected at the cold temperature. You find none of the plants grown under the hot temperature developed any blooms at all, regardless of the water and shade levels. Can you explain this result in terms of interactions between water, shade, and temperature?
+
+\ 
+
+If the effect of temperature on blooms does not depend on the water or shade level, then there is no interaction with respect to either shade and temperature or water and temperature. An interaction would induce differential blooming across water or shade levels *and* temperature levels. But if there is no such stratification between shade or water and temperature, then there is no interaction. However, this does not necessarily preclude a three-way interaction! 
+
+We haven't discussed this yet, but there may be a three-way interaction where blooming depends on water conditional on temperature and shade levels (or some other permutation of these independent variables). 
+
+
+
+
+### 8M2. 
+Can you invent a regression equation that would make the bloom size zero, whenever the temperature is hot? 
+
+I think that the conceptual basis for this question leads towards a three-way interaction by which both shade and water would be conditional on temperature. Here, I have defined it as such by indexing temperature on all parameters. If the temperature is hot (1), then given the 1-minus structure, all parameters will become 0. Alternatively, the temperature variable can be rescaled to have cold mean 1.
+
+
+$$
+\begin{align}
+bloom_i & \sim \text{Normal}(\mu_i, \sigma) \\
+\mu_i &= \alpha_{(1- temp[i])} + \beta_{(1-temp[i])} shade_i + \beta_{(1-temp[i])} water_i 
+\end{align}
+$$
+
+\ \ 
+
+### 8M3. 
+In parts of North America, ravens depend upon wolves for their food. This is because ravens are carnivorous but cannot usually kill or open carcasses of prey. Wolves however can and do kill and tear open animals, and they tolerate ravens co-feeding at their kills. his species relationship is generally described as a “species interaction.” Can you invent a hypothetical set of data on raven population size in which this relationship would manifest as a statistical interaction? Do you think the biological interaction could be linear? Why or why not?
+
+\ 
+
+The phrasing of this question warrants some clarification. 
+
+We can first think about the relationship between the wolf population and raven population of some set of place. In this case, there cannot be an interaction because an interaction requires an additional variable for which the effect of wolf population on raven population varies across its levels. Such a relationship (wolf population is associated with increased raven population) can be visualized with the following:  
+
+```{r}
+set.seed(2)
+eco_1 <- tibble(
+  place = seq(1, 8, 1),
+  wolf = round(rnorm(8, 5, 5/4), 0), 
+  raven = round(rnorm(8, 2 * wolf, ((2 * wolf) / 4)), 0))
+ 
+
+eco_1 %>%  
+  gt() %>% 
+  gt_theme_nytimes() %>% 
+  tab_header(title = "Simulated Wolf and Raven Population Sizes", 
+             subtitle = "Number per square mile")
+
+```
+ 
+ \ \ 
+ 
+However, an interaction may be present if we consider the relationship between wolf and raven populations as well a measure of food availability. In concept, if there were a food source available to ravens which does not depend on wolf intervention, then this would moderate the relationship between wolf and raven population size strongly. To induce some uncertainty, we'll simulate a scenario where wolves consume some portion of the food available to ravens and the raven population is a function of wolf population and food availability as well as both conditional on the other. We'll briefly see what this might look like and consider whether a linear interaction is plausible. 
+
+\ \ 
+ 
+```{r}
+set.seed(10)
+ecosystem <- tibble(
+  
+  # Here, we'll conceive of wolf, (animal) food, and raven populations as the number of each per square mile (in some proverbial large forest)
+  
+  # Here we define the direct effect of wolf population and food as 0.3 and the conditional effect (i.e., interaction) as 0.7. 
+  wolf = rnorm(1e4, 5, 5/4), 
+  
+  # because wolves consume food, we'll decrease the amount of food available to ravens proportionate to wolf population size. There is 5 times as much food as wolves and ravens have access to 70% of the food
+  food = rnorm(1e4, (0.3 * (wolf * 5)), 3/4),
+  raven = rnorm(1e4, (0.3 * wolf) + food + (0.7 * wolf * food)))
+
+
+
+m_8m3 <- lm(raven ~ wolf + food + wolf*food, 
+               data = ecosystem)
+
+tidy(m_8m3)
+
+
+ggpredict(m_8m3, terms = c("food", "wolf")) %>% 
+  plot() + 
+  theme_classic() + 
+  theme(text = element_text(family = "Avenir"), 
+        aspect.ratio = 0.75) + 
+  guides(color = guide_legend(reverse = T)) 
+  
+```
+
+As we can see, the relationship between wolf and raven population is moderated by the food each has access to. The more wolves in an ecosystem, the greater then effect of food availability on raven population. Given our model specification, this seems to be because raven population is a function of both food and wolf population (if there were no wolves, then ravens would have less food via wolf intervention). If there are less wolves in an ecosystem, the effect of food availability on raven population is constrained (again because wolves are there at the same rate as before to make food available). Note that this specification is highly simplified and excludes wolf predation on ravens (if this is a thing, I suppose). 
+
+Now to the question at hand - *could the biological interaction be linear?* I think that in real life, this relationship is not truly linear because there are a number of factors which constrains population growth. The more wolves there are, the raven population might decline at some point along the food axis because of predation. 
+
+\ \ 
+
+### 8M4. 
+Repeat the tulips analysis, but this time use priors that constrain the effect of water to be positive and the effect of shade to be negative. Use prior predictive simulation. What do these prior assumptions mean for the interaction prior, if anything? \ 
+
+$$
+\begin{align}
+bloom_i & \sim \text{Normal}(\mu_i, \sigma) \\ 
+\mu_i &= \alpha + \beta_S shade_i + \beta_W water_i + \beta_{WS} (water_i \times shade_i) \\
+\alpha &\sim \text{Normal}(0.5, 0.25)\\ 
+\beta_S &\sim \text{Normal}(-0.5, 0.15) \\ 
+\beta_W &\sim \text{Normal}(0.5, 0.15) \\ 
+\beta_{SW} &\sim \text{Normal}(-0.25, 0.1) \\ 
+\sigma &\sim \text{Exponential}(1)
+\end{align}
+$$
+\ 
+
+The following is my reasoning for selecting these priors. With these prior specifications, about 95% of the mass of the distribution of possible parameters correspond with the constraint (negative for shade and positive for water). We can also take the product of these distributions to see what the interaction prior might look like. Mathematically, the product of a positive and negative number is negative. Because the mass of each distribution is between 0 and 1 or -1 and concentrate around 0.5 and -0.5, the product of these distributions will concentration around -0.25 (also with a narrower spread).  \ 
+
+```{r}
+t <- tibble(
+  a = rnorm(1e6, 0.5, 0.15),
+  b = rnorm(1e6, -0.5, 0.15),
+  c = a * b) %>% 
+  pivot_longer(everything(), names_to = "term", values_to = "values") 
+
+ggplot(t, aes(values, color = term)) + 
+  geom_density()
+
+t %>% 
+  filter(term == "a") %>% 
+  summarize(pct_outside = 100 * ((sum(values < 0)) / 1e6))
+
+t %>% 
+  filter(term == "b") %>% 
+  summarize(pct_outside = 100 * ((sum(values > 0)) / 1e6))
+```
+
+ \ 
+
+```{r}
+data(tulips)
+d <- tulips
+rm(tulips)
+```
+
+```{r}
+
+d <- d %>% 
+  mutate(bloom_std = blooms / max(blooms),
+         shade_c = shade - mean(shade), 
+         water_c = water - mean(water))
+
+m_8m4 <- quap(
+  alist(
+    bloom_std ~ dnorm(mu, sigma), 
+    mu <- a + bS * shade_c + bW * water_c + bSW * shade_c * water_c,
+    a ~ dnorm(0.5, 0.25), 
+    bS ~ dnorm(-0.5, 0.15), 
+    bW ~ dnorm(0.5, 0.15), 
+    bSW ~ dnorm(-0.25, 0.1),
+    sigma ~ dexp(1)
+  ), data = d)
+
+
+set.seed(0908)
+prior <- extract.prior(m_8m4, n = 100)
+
+
+par(mfrow = c(1, 3)) 
+for (s in -1:1) {
+  idx <- which(d$shade_c == s)
+  plot(d$water_c[idx], d$bloom_std[idx], xlim = c(-1, 1), ylim = c(-2, 3), 
+       xlab = "water", ylab = "blooms", pch = 16, col = rangi2, title(s))
+  mu <- link(m_8m4, post = prior, data = data.frame(shade_c = s, water_c = -1:1)) 
+  for (i in 1:100) lines (-1:1, mu[i, ], col = col.alpha("black", 0.3))
+}
+
+```
+
+\ 
+
+Despite my dislike of McElreath's base R code, I use it here to generate the plots. I have to do a bit more practice to wrangle prior and posterior distributions to produce plots. 
+
+We can see that the effect of water on blooms is positive across levels of shade. More closely, more shade decreases the effect that water has on blooms. Stated more practically, even if a bed of tulips are watered appropriately, they probably won't bloom if they were grown in shade. 
+
+\ \ 
+
+\ \ 
