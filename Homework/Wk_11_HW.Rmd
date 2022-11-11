@@ -1,0 +1,74 @@
+---
+title: 'Wk.11 HW: Questions'
+author: "Samuel Snelson"
+date: "`r Sys.Date()`"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+
+
+### Question 1: What does it mean to produce a posterior distribution?
+
+Something I have had some trouble understanding conceptually is what it really means mathematically to generate a posterior distribution. 
+
+We began by using Bayes Rule where the prior was one single parameter value. For the same of explication, I'll go through an example I think of to make this clear. 
+
+```{r}
+disease <- tibble(
+	real = rbinom(1e4, 1, 0.025), 
+	test = case_when(
+		real == 0 ~ rbinom(1e4, 1, 0.05), 
+		# False-positivity defined as 1% 
+		real == 1 ~ rbinom(1e4, 1, 0.95))) %>% 
+    # True-positivity defined as 95%
+  transmute(real = if_else(real == 1, "disease", "no disease"), 
+            test = if_else(test == 1, "positive", "negative"))
+
+# table of frequencies
+table(disease$real, disease$test)
+
+```
+
+If we want to know the probability that a person actually has a disease given they have tested positive for it, then we can use Bayes Rule to compute this probability (essentially a single posterior probability). 
+
+$$
+\begin{align}
+P(disease | positive)  & = \frac{P(positive|disease) \times P(disease)}{P(b)} \\
+\\
+P(positive) &= P(positive|disease) \times P(disease) \  + \\ 
+& \ \ \ \ \ P(positive| 1-disease)  \times (1-P(disease))
+\end{align}
+$$
+
+We are looking for $P(disease | positive)$. We know all of the terms we need so we can calculate this value. 
+- $P(positive|disease)$ is the true positivity rate which is we have defined as $95\%$
+- $P(disease)$ is the prevalence of the disease in the population which we have defined as $2.5\%$
+- $P(positive|1 - disease)$ is the false positivity rate which we have defined as $1\%$
+
+$$
+P(disease|positive) = \frac{0.95 \times 0.025}{(0.95 \times 0.025) + (0.01 \times 0.9975)} = 0.1923
+$$
+The (posterior) probability that a person actually has a disease when they test positive is about 0.1923. 
+
+So we have established this process. But what if our prior was not just a single value but a distribution depending on values of some other variable? I started to run some simulations here but decided to simplify and put the questions together and practice after. 
+
+I understand that at this point we approximate the posterior distribution using methods like grid and quadratic approximation and the various MCMC approaches. 
+
+### Related Questions:
+
+2. What does it mean conceptually and mathematically to compute a posterior distribution with a distribution of data and a set of prior distributions? 
+
+3. Why do we use approximation methods? I have seen in other materials discussing the posterior that we do not have direct access to it? If this is the case, why? 
+
+4. If we don't have access to the posterior, then how do we sample from it. 
+
+5. With HMC, how do we know the gradient if we are dealing with samples but not the whole distribution. Do we know the local gradient somehow? 
+
+
